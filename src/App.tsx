@@ -7,6 +7,7 @@ import CreateAd from './pages/CreateAd';
 import AdDetails from './pages/AdDetails';
 import Profile from './pages/Profile';
 import AdsList from './pages/AdsList';
+import VerifyEmail from './pages/VerifyEmail';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/ad/:id" component={AdDetails} />
         <Route path="/profile" component={Profile} />
         <Route path="/category/:categoryId" component={AdsList} />
+        <Route path="/verify-email" component={VerifyEmail} />
         <Route>404 - Page Not Found</Route>
       </Switch>
     </AuthProvider>
