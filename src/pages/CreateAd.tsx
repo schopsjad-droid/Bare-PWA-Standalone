@@ -5,6 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 const SYRIAN_CITIES = [
   'دمشق', 'حلب', 'حمص', 'حماة', 'اللاذقية', 'طرطوس',
@@ -22,7 +23,7 @@ const CATEGORIES = [
 ];
 
 export default function CreateAd() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,11 +34,6 @@ export default function CreateAd() {
   const [category, setCategory] = useState('');
   const [city, setCity] = useState('');
   const [images, setImages] = useState<File[]>([]);
-
-  if (!user) {
-    setLocation('/login');
-    return null;
-  }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -70,7 +66,7 @@ export default function CreateAd() {
         city,
         images: imageUrls,
         userId: user.uid,
-        userEmail: user.email,
+        username: userProfile?.username || 'مستخدم',
         createdAt: serverTimestamp(),
       });
 
@@ -83,7 +79,8 @@ export default function CreateAd() {
   };
 
   return (
-    <div>
+    <ProtectedRoute requireAuth={true} requireUsername={true}>
+      <div>
       <Navbar />
       
       <div className="container py-8">
@@ -189,7 +186,8 @@ export default function CreateAd() {
           </form>
         </div>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }
 

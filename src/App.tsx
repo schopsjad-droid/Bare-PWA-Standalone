@@ -8,6 +8,8 @@ import AdDetails from './pages/AdDetails';
 import Profile from './pages/Profile';
 import AdsList from './pages/AdsList';
 import VerifyEmail from './pages/VerifyEmail';
+import CompleteProfile from './pages/CompleteProfile';
+import EditAd from './pages/EditAd';
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="/profile" component={Profile} />
         <Route path="/category/:categoryId" component={AdsList} />
         <Route path="/verify-email" component={VerifyEmail} />
+        <Route path="/complete-profile" component={CompleteProfile} />
+        <Route path="/edit-ad/:id" component={EditAd} />
         <Route>404 - Page Not Found</Route>
       </Switch>
     </AuthProvider>

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useRoute } from 'wouter';
+import { useState, useEffect } from 'react';
+import { useRoute, Link } from 'wouter';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 
 interface Ad {
@@ -11,11 +12,13 @@ interface Ad {
   category: string;
   city: string;
   images: string[];
-  userEmail: string;
+  userId: string;
+  username: string;
   createdAt: any;
 }
 
 export default function AdDetails() {
+  const { user } = useAuth();
   const [, params] = useRoute('/ad/:id');
   const [ad, setAd] = useState<Ad | null>(null);
   const [loading, setLoading] = useState(true);
@@ -139,8 +142,19 @@ export default function AdDetails() {
 
             <div className="border-t pt-4">
               <h3 className="font-semibold mb-2">معلومات البائع</h3>
-              <p className="text-gray-700">{ad.userEmail}</p>
+              <p className="text-gray-700">👤 {ad.username}</p>
             </div>
+
+            {/* Edit Button - Only visible to owner */}
+            {user && ad.userId === user.uid && (
+              <div className="border-t pt-4 mt-4">
+                <Link href={`/edit-ad/${params?.id}`}>
+                  <a className="btn btn-primary" style={{ width: '100%', display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+                    ✏️ تعديل الإعلان
+                  </a>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
