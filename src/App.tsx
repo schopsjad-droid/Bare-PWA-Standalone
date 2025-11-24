@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import CreateAd from './pages/CreateAd';
 import AdDetails from './pages/AdDetails';
 import Profile from './pages/Profile';
+import AdsList from './pages/AdsList';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/create-ad" component={CreateAd} />
         <Route path="/ad/:id" component={AdDetails} />
         <Route path="/profile" component={Profile} />
+        <Route path="/category/:categoryId" component={AdsList} />
         <Route>404 - Page Not Found</Route>
       </Switch>
     </AuthProvider>
