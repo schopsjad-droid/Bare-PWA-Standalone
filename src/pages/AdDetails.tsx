@@ -21,7 +21,7 @@ interface Ad {
 }
 
 export default function AdDetails() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [, params] = useRoute('/ad/:id');
   const [, setLocation] = useLocation();
   const [ad, setAd] = useState<Ad | null>(null);
