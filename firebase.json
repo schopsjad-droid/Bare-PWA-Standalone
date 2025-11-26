@@ -1,7 +1,10 @@
 {
-  "functions": {
-    "source": "functions"
-  },
+  "functions": [{
+    "source": "functions",
+    "codebase": "default",
+    "runtime": "nodejs20",
+    "region": "europe-west1"
+  }],
   "firestore": {
     "rules": "firestore.rules"
   },
