@@ -33,6 +33,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -210,6 +211,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserProfile(null);
   };
 
+  // Refresh user profile from Firestore
+  const refreshUserProfile = async () => {
+    if (user) {
+      await fetchUserProfile(user.uid);
+    }
+  };
+
   const value = {
     user,
     userProfile,
@@ -219,6 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loginWithGoogle,
     logout,
     resendVerificationEmail,
+    refreshUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

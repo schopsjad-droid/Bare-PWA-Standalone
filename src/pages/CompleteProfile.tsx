@@ -8,7 +8,7 @@ export default function CompleteProfile() {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, refreshUserProfile } = useAuth();
   const [, setLocation] = useLocation();
 
   // Check if username is already set
@@ -71,6 +71,9 @@ export default function CompleteProfile() {
         await updateDoc(doc(db, 'users', user.uid), {
           username: username.trim()
         });
+
+        // Refresh user profile in context
+        await refreshUserProfile();
 
         // Redirect to home
         setLocation('/');

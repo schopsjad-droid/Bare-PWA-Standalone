@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar';
 import { useLocation } from 'wouter';
 
 export default function AccountSettings() {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, refreshUserProfile } = useAuth();
   const [, setLocation] = useLocation();
   const [username, setUsername] = useState('');
   const [saving, setSaving] = useState(false);
@@ -51,12 +51,10 @@ export default function AccountSettings() {
         username: username.trim()
       });
 
+      // Refresh user profile in context
+      await refreshUserProfile();
+
       setMessage('✅ تم حفظ التغييرات بنجاح');
-      
-      // Reload page after 1 second to update context
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
     } catch (error) {
       console.error('Error updating username:', error);
       setMessage('❌ فشل حفظ التغييرات');
