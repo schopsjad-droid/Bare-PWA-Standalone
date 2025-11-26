@@ -56,6 +56,54 @@ service cloud.firestore {
                     && request.auth.uid == resource.data.userId;
     }
     
+    // Chats collection
+    match /chats/{chatId} {
+      // Only participants can read the chat
+      allow read: if isAuthenticated() 
+                  && request.auth.uid in resource.data.participants;
+      
+      // Authenticated users can create chats
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.participants;
+      
+      // Participants can update chat metadata (lastMessage, lastMessageTime)
+      allow update: if isAuthenticated() 
+                    && request.auth.uid in resource.data.participants;
+      
+      // No one can delete chats (optional - change if needed)
+      allow delete: if false;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Only chat participants can read messages
+        allow read: if isAuthenticated() 
+                    && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        
+        // Only chat participants can create messages
+        allow create: if isAuthenticated() 
+                      && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+                      && request.resource.data.senderId == request.auth.uid;
+        
+        // No updates or deletes on messages
+        allow update, delete: if false;
+      }
+    }
+    
+    // Favorites collection (if needed in future)
+    match /favorites/{favoriteId} {
+      // Users can only read their own favorites
+      allow read: if isAuthenticated() 
+                  && request.auth.uid == resource.data.userId;
+      
+      // Users can create their own favorites
+      allow create: if isAuthenticated() 
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own favorites
+      allow delete: if isAuthenticated() 
+                    && request.auth.uid == resource.data.userId;
+    }
+    
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

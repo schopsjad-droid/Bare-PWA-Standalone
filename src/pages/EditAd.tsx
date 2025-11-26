@@ -6,21 +6,7 @@ import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import ProtectedRoute from '../components/ProtectedRoute';
-
-const SYRIAN_CITIES = [
-  'دمشق', 'حلب', 'حمص', 'حماة', 'اللاذقية', 'طرطوس',
-  'دير الزور', 'الرقة', 'إدلب', 'الحسكة', 'القامشلي',
-  'درعا', 'السويداء', 'القنيطرة'
-];
-
-const CATEGORIES = [
-  { id: 'electronics', name: 'إلكترونيات', icon: '📱' },
-  { id: 'vehicles', name: 'مركبات', icon: '🚗' },
-  { id: 'real-estate', name: 'عقارات', icon: '🏠' },
-  { id: 'furniture', name: 'أثاث', icon: '🛋️' },
-  { id: 'fashion', name: 'أزياء', icon: '👔' },
-  { id: 'other', name: 'أخرى', icon: '📦' },
-];
+import { MAIN_CATEGORIES, SYRIAN_CITIES, getSubcategories, getMainCategoryForSub, type PriceType } from '../constants/categories';
 
 export default function EditAd() {
   const { user } = useAuth();
@@ -34,7 +20,9 @@ export default function EditAd() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('');
+  const [priceType, setPriceType] = useState<PriceType>('fixed');
+  const [mainCategory, setMainCategory] = useState('');
+  const [subcategory, setSubcategory] = useState('');
   const [city, setCity] = useState('');
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [newImages, setNewImages] = useState<File[]>([]);
@@ -63,8 +51,22 @@ export default function EditAd() {
         // Load ad data
         setTitle(adData.title || '');
         setDescription(adData.description || '');
-        setPrice(adData.price?.toString() || '');
-        setCategory(adData.category || '');
+        setPrice(adData.price?.toString() || '0');
+        setPriceType(adData.priceType || 'fixed');
+        
+        // Handle category migration
+        const adMainCategory = adData.mainCategory || adData.category;
+        const adCategory = adData.category;
+        
+        setMainCategory(adMainCategory || '');
+        
+        // If category is different from mainCategory, it's a subcategory
+        if (adCategory && adCategory !== adMainCategory) {
+          setSubcategory(adCategory);
+        } else {
+          setSubcategory('');
+        }
+        
         setCity(adData.city || '');
         setExistingImages(adData.images || []);
       } else {
@@ -89,6 +91,11 @@ export default function EditAd() {
     setExistingImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleMainCategoryChange = (value: string) => {
+    setMainCategory(value);
+    setSubcategory(''); // Reset subcategory when main category changes
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -107,6 +114,9 @@ export default function EditAd() {
       // Combine existing and new images
       const allImages = [...existingImages, ...newImageUrls];
 
+      // Determine final category (use subcategory if selected, otherwise main category)
+      const finalCategory = subcategory || mainCategory;
+
       // Update ad document with ownership verification
       if (params?.id && user) {
         const docRef = doc(db, 'ads', params.id);
@@ -122,8 +132,10 @@ export default function EditAd() {
         await updateDoc(docRef, {
           title,
           description,
-          price: Number(price),
-          category,
+          price: priceType === 'free' ? 0 : Number(price),
+          priceType,
+          category: finalCategory,
+          mainCategory,
           city,
           images: allImages,
           updatedAt: serverTimestamp(),
@@ -138,6 +150,8 @@ export default function EditAd() {
       setSaving(false);
     }
   };
+
+  const subcategories = getSubcategories(mainCategory);
 
   if (loading) {
     return (
@@ -219,33 +233,99 @@ export default function EditAd() {
                 />
               </div>
 
+              {/* Price Type Selection */}
               <div className="mb-4">
-                <label className="label">السعر (ل.س)</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  required
-                />
+                <label className="label">نوع السعر</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="priceType"
+                      value="fixed"
+                      checked={priceType === 'fixed'}
+                      onChange={(e) => setPriceType(e.target.value as PriceType)}
+                      style={{ marginLeft: '0.5rem' }}
+                    />
+                    <span>سعر ثابت</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="priceType"
+                      value="negotiable"
+                      checked={priceType === 'negotiable'}
+                      onChange={(e) => setPriceType(e.target.value as PriceType)}
+                      style={{ marginLeft: '0.5rem' }}
+                    />
+                    <span>قابل للتفاوض</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="priceType"
+                      value="free"
+                      checked={priceType === 'free'}
+                      onChange={(e) => setPriceType(e.target.value as PriceType)}
+                      style={{ marginLeft: '0.5rem' }}
+                    />
+                    <span>إهداء / تبرع (مجاناً)</span>
+                  </label>
+                </div>
               </div>
 
+              {/* Price Input (hidden for free) */}
+              {priceType !== 'free' && (
+                <div className="mb-4">
+                  <label className="label">
+                    {priceType === 'negotiable' ? 'السعر التقريبي (ل.س)' : 'السعر (ل.س)'}
+                  </label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    required
+                    min="0"
+                  />
+                </div>
+              )}
+
+              {/* Main Category */}
               <div className="mb-4">
-                <label className="label">الفئة</label>
+                <label className="label">الفئة الرئيسية</label>
                 <select
                   className="input"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  value={mainCategory}
+                  onChange={(e) => handleMainCategoryChange(e.target.value)}
                   required
                 >
-                  <option value="">اختر الفئة</option>
-                  {CATEGORIES.map(cat => (
+                  <option value="">اختر الفئة الرئيسية</option>
+                  {MAIN_CATEGORIES.map(cat => (
                     <option key={cat.id} value={cat.id}>
                       {cat.icon} {cat.name}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {/* Subcategory (shown only if main category has subcategories) */}
+              {subcategories.length > 0 && (
+                <div className="mb-4">
+                  <label className="label">الفئة الفرعية (اختياري)</label>
+                  <select
+                    className="input"
+                    value={subcategory}
+                    onChange={(e) => setSubcategory(e.target.value)}
+                  >
+                    <option value="">اختر الفئة الفرعية (أو اترك فارغاً)</option>
+                    {subcategories.map(sub => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.icon} {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="mb-4">
                 <label className="label">المدينة</label>
@@ -356,4 +436,3 @@ export default function EditAd() {
     </ProtectedRoute>
   );
 }
-

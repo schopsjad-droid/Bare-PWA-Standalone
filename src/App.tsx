@@ -10,6 +10,8 @@ import AdsList from './pages/AdsList';
 import VerifyEmail from './pages/VerifyEmail';
 import CompleteProfile from './pages/CompleteProfile';
 import EditAd from './pages/EditAd';
+import Inbox from './pages/Inbox';
+import ChatRoom from './pages/ChatRoom';
 
 function App() {
   return (
@@ -25,6 +27,8 @@ function App() {
         <Route path="/verify-email" component={VerifyEmail} />
         <Route path="/complete-profile" component={CompleteProfile} />
         <Route path="/edit-ad/:id" component={EditAd} />
+        <Route path="/inbox" component={Inbox} />
+        <Route path="/chat/:chatId" component={ChatRoom} />
         <Route>404 - Page Not Found</Route>
       </Switch>
     </AuthProvider>

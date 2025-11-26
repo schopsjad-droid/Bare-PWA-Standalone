@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useRoute, Link, useLocation } from 'wouter';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
+import { formatPrice, type PriceType } from '../constants/categories';
 
 interface Ad {
   title: string;
   description: string;
   price: number;
+  priceType?: PriceType;
   category: string;
   city: string;
   images: string[];
@@ -27,6 +29,7 @@ export default function AdDetails() {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [startingChat, setStartingChat] = useState(false);
 
   useEffect(() => {
     if (params?.id) {
@@ -58,6 +61,51 @@ export default function AdDetails() {
     } catch (error) {
       console.error('Error extracting file path:', error);
       return null;
+    }
+  };
+
+  // Contact seller - create or find existing chat
+  const handleContactSeller = async () => {
+    if (!user || !userProfile || !ad || !params?.id) return;
+
+    setStartingChat(true);
+    try {
+      // Check if chat already exists
+      const chatsRef = collection(db, 'chats');
+      const q = query(
+        chatsRef,
+        where('adId', '==', params.id),
+        where('buyerId', '==', user.uid)
+      );
+      
+      const existingChats = await getDocs(q);
+      
+      if (!existingChats.empty) {
+        // Chat exists, navigate to it
+        const chatId = existingChats.docs[0].id;
+        setLocation(`/chat/${chatId}`);
+      } else {
+        // Create new chat
+        const newChat = await addDoc(collection(db, 'chats'), {
+          adId: params.id,
+          adTitle: ad.title,
+          adImage: ad.images?.[0] || null,
+          buyerId: user.uid,
+          buyerName: userProfile.username,
+          sellerId: ad.userId,
+          sellerName: ad.username,
+          participants: [user.uid, ad.userId],
+          lastMessage: '',
+          lastMessageTime: serverTimestamp()
+        });
+        
+        setLocation(`/chat/${newChat.id}`);
+      }
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      alert('فشل بدء المحادثة');
+    } finally {
+      setStartingChat(false);
     }
   };
 
@@ -172,8 +220,10 @@ export default function AdDetails() {
           {/* Details */}
           <div className="card">
             <h1 className="text-3xl font-bold mb-4">{ad.title}</h1>
-            <div className="text-3xl font-bold text-primary mb-6">
-              {ad.price.toLocaleString()} ل.س
+            <div className="text-3xl font-bold mb-6" style={{
+              color: (ad.priceType === 'free') ? '#22c55e' : '#22c55e'
+            }}>
+              {formatPrice({ amount: ad.price, type: ad.priceType || 'fixed' })}
             </div>
             
             <div className="mb-6">
@@ -198,6 +248,20 @@ export default function AdDetails() {
               <h3 className="font-semibold mb-2">معلومات البائع</h3>
               <p className="text-gray-700">👤 {ad.username}</p>
             </div>
+
+            {/* Contact Seller Button - Only visible to non-owners */}
+            {user && ad.userId !== user.uid && (
+              <div className="border-t pt-4 mt-4">
+                <button
+                  onClick={handleContactSeller}
+                  disabled={startingChat}
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                >
+                  {startingChat ? 'جاري الفتح...' : '💬 راسل البائع'}
+                </button>
+              </div>
+            )}
 
             {/* Edit & Delete Buttons - Only visible to owner */}
             {user && ad.userId === user.uid && (

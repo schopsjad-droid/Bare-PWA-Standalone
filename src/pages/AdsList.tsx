@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Link, useRoute } from 'wouter';
+import { formatPrice, type PriceType } from '../constants/categories';
 
 interface Ad {
   id: string;
   title: string;
   description: string;
   price: number;
+  priceType?: PriceType;
   category: string;
   city: string;
   images: string[];
@@ -188,7 +190,11 @@ export default function AdsList() {
                   )}
                   <div className="ad-content">
                     <div className="ad-title">{ad.title}</div>
-                    <div className="ad-price">{ad.price.toLocaleString()} ل.س</div>
+                    <div className="ad-price" style={{
+                      color: (ad.priceType === 'free') ? '#22c55e' : undefined
+                    }}>
+                      {formatPrice({ amount: ad.price, type: ad.priceType || 'fixed' })}
+                    </div>
                     <div className="ad-location">📍 {ad.city}</div>
                   </div>
                 </a>
