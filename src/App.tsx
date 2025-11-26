@@ -12,6 +12,7 @@ import CompleteProfile from './pages/CompleteProfile';
 import EditAd from './pages/EditAd';
 import Inbox from './pages/Inbox';
 import ChatRoom from './pages/ChatRoom';
+import AccountSettings from './pages/AccountSettings';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
         <Route path="/edit-ad/:id" component={EditAd} />
         <Route path="/inbox" component={Inbox} />
         <Route path="/chat/:chatId" component={ChatRoom} />
+        <Route path="/account-settings" component={AccountSettings} />
         <Route>404 - Page Not Found</Route>
       </Switch>
     </AuthProvider>

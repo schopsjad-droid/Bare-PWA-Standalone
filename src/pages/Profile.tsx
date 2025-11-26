@@ -56,7 +56,14 @@ export default function Profile() {
       
       <div className="container py-8">
         <div className="card mb-6">
-          <h1 className="text-3xl font-bold mb-4">حسابي</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h1 className="text-3xl font-bold">حسابي</h1>
+            <Link href="/account-settings">
+              <a className="btn" style={{ padding: '8px 16px' }}>
+                ⚙️ الإعدادات
+              </a>
+            </Link>
+          </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center justify-center" style={{
               width: '80px',
