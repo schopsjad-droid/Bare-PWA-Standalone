@@ -66,7 +66,19 @@ export default function AdDetails() {
 
   // Contact seller - create or find existing chat
   const handleContactSeller = async () => {
-    if (!user || !userProfile || !ad || !params?.id) return;
+    if (!user) {
+      alert('يجب تسجيل الدخول أولاً');
+      setLocation('/login');
+      return;
+    }
+
+    if (!userProfile || !userProfile.username) {
+      alert('يجب إكمال الملف الشخصي أولاً');
+      setLocation('/complete-profile');
+      return;
+    }
+
+    if (!ad || !params?.id) return;
 
     setStartingChat(true);
     try {
