@@ -20,8 +20,9 @@ admin.initializeApp();
  * This prevents storage bloat by ensuring that when an ad is deleted,
  * all its images are also removed from storage.
  */
-exports.cleanupAdImages = functions.region('europe-west1').firestore
-  .document('ads/{adId}')
+exports.cleanupAdImages = functions
+  .runWith({ region: 'europe-west1' })
+  .firestore.document('ads/{adId}')
   .onDelete(async (snap, context) => {
     const deletedAd = snap.data();
     const adId = context.params.adId;
