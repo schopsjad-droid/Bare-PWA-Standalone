@@ -1,0 +1,155 @@
+# نشر قواعد Firestore يدوياً
+
+## المشكلة
+قواعد Firestore المحدثة (التي تدعم نظام الدردشة) موجودة في الملف `firestore.rules` لكنها لم تُنشر إلى Firebase بعد.
+
+## الحل السريع
+
+### الطريقة 1: عبر Firebase Console (الأسهل)
+
+1. افتح Firebase Console: https://console.firebase.google.com/project/bare-android-app/firestore/rules
+
+2. انسخ المحتوى التالي بالكامل:
+
+```
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to check if user has a valid username
+    function hasValidUsername() {
+      return isAuthenticated() 
+        && request.resource.data.username != null 
+        && request.resource.data.username != 'مستخدم'
+        && request.resource.data.username != '';
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isAuthenticated();
+      
+      // Users can create their own profile
+      allow create: if isAuthenticated() 
+                    && request.auth.uid == userId;
+      
+      // Users can only update their own profile
+      allow update: if isOwner(userId);
+      
+      // Users cannot delete their own profile (optional - remove if you want to allow)
+      allow delete: if false;
+    }
+    
+    // Ads collection
+    match /ads/{adId} {
+      // Anyone can read ads (public access)
+      allow read: if true;
+      
+      // Authenticated users with valid username can create ads
+      allow create: if isAuthenticated()
+                    && hasValidUsername()
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // Only the owner can update their ad
+      allow update: if isAuthenticated() 
+                    && request.auth.uid == resource.data.userId;
+      
+      // Only the owner can delete their ad
+      allow delete: if isAuthenticated() 
+                    && request.auth.uid == resource.data.userId;
+    }
+    
+    // Chats collection
+    match /chats/{chatId} {
+      // Only participants can read the chat
+      allow read: if isAuthenticated() 
+                  && request.auth.uid in resource.data.participants;
+      
+      // Authenticated users can create chats
+      allow create: if isAuthenticated()
+                    && request.auth.uid in request.resource.data.participants;
+      
+      // Participants can update chat metadata (lastMessage, lastMessageTime)
+      allow update: if isAuthenticated() 
+                    && request.auth.uid in resource.data.participants;
+      
+      // No one can delete chats (optional - change if needed)
+      allow delete: if false;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Only chat participants can read messages
+        allow read: if isAuthenticated() 
+                    && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        
+        // Only chat participants can create messages
+        allow create: if isAuthenticated() 
+                      && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+                      && request.resource.data.senderId == request.auth.uid;
+        
+        // No updates or deletes on messages
+        allow update, delete: if false;
+      }
+    }
+    
+    // Favorites collection (if needed in future)
+    match /favorites/{favoriteId} {
+      // Users can only read their own favorites
+      allow read: if isAuthenticated() 
+                  && request.auth.uid == resource.data.userId;
+      
+      // Users can create their own favorites
+      allow create: if isAuthenticated() 
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own favorites
+      allow delete: if isAuthenticated() 
+                    && request.auth.uid == resource.data.userId;
+    }
+    
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+```
+
+3. الصق المحتوى في محرر القواعد في Firebase Console
+
+4. اضغط على زر "Publish" (نشر)
+
+5. انتظر بضع ثوانٍ حتى يتم النشر
+
+### الطريقة 2: عبر Firebase CLI (للمطورين)
+
+إذا كان لديك Firebase CLI مثبت ومسجل دخول:
+
+```bash
+cd /path/to/bare-standalone
+firebase deploy --only firestore:rules --project bare-android-app
+```
+
+## التحقق من النجاح
+
+بعد نشر القواعد، جرب:
+
+1. سجل دخول إلى الموقع: https://bare-android-app.web.app
+2. افتح أي إعلان
+3. اضغط على زر "راسل البائع"
+4. يجب أن يعمل الزر وينقلك إلى صفحة الدردشة
+
+## ملاحظة
+
+GitHub Actions الآن مُعد لنشر قواعد Firestore تلقائياً مع كل تحديث، لكن يحتاج إلى `FIREBASE_SERVICE_ACCOUNT` في GitHub Secrets ليعمل بشكل صحيح.
