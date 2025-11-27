@@ -24,6 +24,7 @@ export default function Inbox() {
   const { user, userProfile } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [indexFixUrl, setIndexFixUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -60,13 +61,23 @@ export default function Inbox() {
         // Error callback
         console.error('[Inbox] Error loading chats:', error);
         
-        // Show error message to user (especially important for mobile)
-        alert(
-          'خطأ في تحميل الرسائل:\n\n' + 
-          error.message + 
-          '\n\n' +
-          'إذا ظهر رابط في الخطأ، افتحه لإنشاء الفهرس المطلوب.'
-        );
+        // Extract Firebase Console URL from error message
+        const errorMessage = error.message || '';
+        const urlMatch = errorMessage.match(/(https:\/\/console\.firebase\.google\.com\/[^\s]+)/);
+        
+        if (urlMatch && urlMatch[1]) {
+          // Found index creation URL
+          console.log('[Inbox] Index fix URL:', urlMatch[1]);
+          setIndexFixUrl(urlMatch[1]);
+        } else {
+          // No URL found, show alert
+          alert(
+            'خطأ في تحميل الرسائل:\n\n' + 
+            errorMessage + 
+            '\n\n' +
+            'يرجى التواصل مع الدعم الفني.'
+          );
+        }
         
         setLoading(false);
       }
@@ -108,7 +119,38 @@ export default function Inbox() {
             الرسائل
           </h1>
 
-          {loading ? (
+          {indexFixUrl ? (
+            <div className="card text-center py-12">
+              <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚠️</div>
+              <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+                يجب إعداد قاعدة البيانات
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                لعرض الرسائل، يجب إنشاء فهرس في Firebase
+              </p>
+              <button
+                onClick={() => window.open(indexFixUrl, '_blank')}
+                style={{
+                  padding: '16px 32px',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#b91c1c'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#dc2626'}
+              >
+                🔧 اضغط هنا لإصلاح قاعدة البيانات
+              </button>
+              <p style={{ color: 'var(--text-muted)', marginTop: '16px', fontSize: '14px' }}>
+                بعد الضغط، سيفتح Firebase Console. اضغط "Create Index" وانتظر 1-2 دقيقة
+              </p>
+            </div>
+          ) : loading ? (
             <div className="flex justify-center py-8">
               <div className="spinner"></div>
             </div>
