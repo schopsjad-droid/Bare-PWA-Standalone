@@ -25,7 +25,7 @@ export async function requestNotificationPermission(userId: string): Promise<str
 
     // Get FCM token
     const token = await getToken(messaging, {
-      vapidKey: 'YOUR_VAPID_KEY_HERE' // سيتم تحديثه لاحقاً
+      vapidKey: 'BO9MvTX50nuKZhm_sHjAzish67IBMOy0ZZJo8avEZ0bhtVEe7nK-q9Wz3pp7N6SFRuw9fYUcqPnIPOFUdcVzrmc'
     });
 
     if (token) {
