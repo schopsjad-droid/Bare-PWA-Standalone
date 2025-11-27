@@ -29,6 +29,7 @@ function App() {
         <Route path="/complete-profile" component={CompleteProfile} />
         <Route path="/edit-ad/:id" component={EditAd} />
         <Route path="/inbox" component={Inbox} />
+        <Route path="/messages" component={Inbox} />
         <Route path="/chat/:chatId" component={ChatRoom} />
         <Route path="/account-settings" component={AccountSettings} />
         <Route>404 - Page Not Found</Route>
