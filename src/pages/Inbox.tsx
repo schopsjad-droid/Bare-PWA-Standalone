@@ -36,15 +36,41 @@ export default function Inbox() {
       orderBy('lastMessageTime', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const chatsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Chat[];
-      
-      setChats(chatsData);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        // Success callback
+        if (snapshot.empty) {
+          console.log('[Inbox] No chats found');
+          setChats([]);
+          setLoading(false);
+          return;
+        }
+
+        const chatsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Chat[];
+        
+        console.log(`[Inbox] Loaded ${chatsData.length} chats`);
+        setChats(chatsData);
+        setLoading(false);
+      },
+      (error) => {
+        // Error callback
+        console.error('[Inbox] Error loading chats:', error);
+        
+        // Show error message to user (especially important for mobile)
+        alert(
+          'خطأ في تحميل الرسائل:\n\n' + 
+          error.message + 
+          '\n\n' +
+          'إذا ظهر رابط في الخطأ، افتحه لإنشاء الفهرس المطلوب.'
+        );
+        
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, [user]);
