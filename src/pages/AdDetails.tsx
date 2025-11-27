@@ -113,9 +113,10 @@ export default function AdDetails() {
         
         setLocation(`/chat/${newChat.id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting chat:', error);
-      alert('فشل بدء المحادثة');
+      // إظهار الخطأ الحقيقي للتشخيص
+      alert('Error: ' + (error.message || error.toString()));
     } finally {
       setStartingChat(false);
     }
