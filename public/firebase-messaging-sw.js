@@ -17,20 +17,59 @@ firebase.initializeApp(firebaseConfig);
 // Initialize Firebase Messaging
 const messaging = firebase.messaging();
 
-// Handle background messages
+// ========================================
+// Background Message Handler
+// ========================================
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  
-  const notificationTitle = payload.notification.title;
+  console.log('[firebase-messaging-sw.js] Received background message:', payload);
+
+  const notificationTitle = payload.notification?.title || 'رسالة جديدة';
   const notificationOptions = {
-    body: payload.notification.body,
+    body: payload.notification?.body || 'لديك رسالة جديدة',
     icon: '/logo-192.png',
     badge: '/logo-192.png',
-    tag: 'bare-notification',
-    requireInteraction: false
+    tag: payload.data?.chatId || 'default',
+    data: {
+      chatId: payload.data?.chatId,
+      url: payload.data?.url || '/'
+    },
+    requireInteraction: true,
+    vibrate: [200, 100, 200]
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// ========================================
+// Notification Click Handler
+// ========================================
+self.addEventListener('notificationclick', (event) => {
+  console.log('[firebase-messaging-sw.js] Notification clicked:', event);
+
+  event.notification.close();
+
+  const chatId = event.notification.data?.chatId;
+  const urlToOpen = chatId ? `/chat/${chatId}` : '/inbox';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // إذا كان التطبيق مفتوحاً، انتقل إلى المحادثة
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.postMessage({
+            type: 'NOTIFICATION_CLICKED',
+            chatId: chatId
+          });
+          return client.focus();
+        }
+      }
+
+      // إذا لم يكن التطبيق مفتوحاً، افتح نافذة جديدة
+      if (clients.openWindow) {
+        return clients.openWindow(self.location.origin + urlToOpen);
+      }
+    })
+  );
 });
 
 // UPDATED: Cache version with timestamp to force updates

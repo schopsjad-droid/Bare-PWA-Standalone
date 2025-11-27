@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { requestNotificationPermission } from '../utils/notifications';
 
 interface UserProfile {
   uid: string;
@@ -73,6 +74,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (firebaseUser) {
         await fetchUserProfile(firebaseUser.uid);
         await updateLastLogin(firebaseUser.uid);
+        
+        // Request notification permission after login
+        // (delayed to not interrupt login flow)
+        setTimeout(() => {
+          requestNotificationPermission(firebaseUser.uid).catch(err => {
+            console.error('Error setting up notifications:', err);
+          });
+        }, 2000);
       } else {
         setUserProfile(null);
       }

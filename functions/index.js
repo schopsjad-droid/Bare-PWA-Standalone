@@ -78,6 +78,117 @@ exports.cleanupAdImages = functions.region('europe-west1').firestore
   });
 
 /**
+ * Cloud Function: Send notification when a new message is created
+ * 
+ * Triggers: When a new document is created in 'chats/{chatId}/messages' subcollection
+ * Purpose: Send push notification to the recipient
+ * 
+ * Flow:
+ * 1. Get message data (senderId, text)
+ * 2. Get chat data to find recipient
+ * 3. Get recipient's FCM tokens
+ * 4. Send notification to all recipient's devices
+ */
+exports.sendMessageNotification = functions.region('europe-west1').firestore
+  .document('chats/{chatId}/messages/{messageId}')
+  .onCreate(async (snap, context) => {
+    const message = snap.data();
+    const chatId = context.params.chatId;
+    const messageId = context.params.messageId;
+
+    console.log(`New message in chat ${chatId}: ${messageId}`);
+
+    try {
+      // Get chat data to find participants
+      const chatRef = admin.firestore().collection('chats').doc(chatId);
+      const chatDoc = await chatRef.get();
+
+      if (!chatDoc.exists) {
+        console.error('Chat not found:', chatId);
+        return null;
+      }
+
+      const chatData = chatDoc.data();
+      const senderId = message.senderId;
+      const senderName = message.senderName || 'مستخدم';
+      const messageText = message.text || '';
+
+      // Find recipient (the other participant)
+      const recipientId = chatData.participants.find(id => id !== senderId);
+
+      if (!recipientId) {
+        console.error('Recipient not found in chat:', chatId);
+        return null;
+      }
+
+      console.log(`Recipient: ${recipientId}`);
+
+      // Get recipient's FCM tokens
+      const userRef = admin.firestore().collection('users').doc(recipientId);
+      const userDoc = await userRef.get();
+
+      if (!userDoc.exists) {
+        console.error('Recipient user not found:', recipientId);
+        return null;
+      }
+
+      const userData = userDoc.data();
+      const fcmTokens = userData.fcmTokens || [];
+
+      if (fcmTokens.length === 0) {
+        console.log('Recipient has no FCM tokens');
+        return null;
+      }
+
+      console.log(`Sending notification to ${fcmTokens.length} devices`);
+
+      // Prepare notification payload
+      const payload = {
+        notification: {
+          title: `رسالة جديدة من ${senderName}`,
+          body: messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText,
+        },
+        data: {
+          chatId: chatId,
+          senderId: senderId,
+          messageId: messageId,
+          url: `/chat/${chatId}`
+        }
+      };
+
+      // Send notification to all tokens
+      const sendPromises = fcmTokens.map(async (token) => {
+        try {
+          await admin.messaging().send({
+            token: token,
+            ...payload
+          });
+          console.log(`Notification sent to token: ${token.substring(0, 20)}...`);
+        } catch (error) {
+          console.error(`Error sending to token ${token.substring(0, 20)}:`, error);
+          
+          // If token is invalid, remove it from user's tokens
+          if (error.code === 'messaging/invalid-registration-token' ||
+              error.code === 'messaging/registration-token-not-registered') {
+            console.log('Removing invalid token');
+            await userRef.update({
+              fcmTokens: admin.firestore.FieldValue.arrayRemove(token)
+            });
+          }
+        }
+      });
+
+      await Promise.all(sendPromises);
+
+      console.log(`Notification sent for message: ${messageId}`);
+      return null;
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      return null;
+    }
+  });
+
+/**
  * Additional Cloud Functions can be added here
  * 
  * Examples:
