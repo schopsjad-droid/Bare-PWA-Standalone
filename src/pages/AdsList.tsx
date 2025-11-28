@@ -121,22 +121,31 @@ export default function AdsList() {
   };
 
   const filteredAds = ads.filter(ad => {
-    // Search query filter
-    if (searchQuery) {
-      const matchesSearch = 
-        ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ad.description.toLowerCase().includes(searchQuery.toLowerCase());
-      if (!matchesSearch) return false;
+    try {
+      // Safety check: skip ads with missing critical fields
+      if (!ad || !ad.id || !ad.title) return false;
+      
+      // Search query filter
+      if (searchQuery) {
+        const matchesSearch = 
+          (ad.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (ad.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matchesSearch) return false;
+      }
+      
+      // Price range filter (with safety checks)
+      const adPrice = ad.price || 0;
+      const minPrice = filters.minPrice ? parseFloat(filters.minPrice) : null;
+      const maxPrice = filters.maxPrice ? parseFloat(filters.maxPrice) : null;
+      
+      if (minPrice !== null && adPrice < minPrice) return false;
+      if (maxPrice !== null && adPrice > maxPrice) return false;
+      
+      return true;
+    } catch (error) {
+      console.error('Error filtering ad:', ad.id, error);
+      return false; // Skip corrupted ads
     }
-    
-    // Price range filter
-    const minPrice = filters.minPrice ? parseFloat(filters.minPrice) : null;
-    const maxPrice = filters.maxPrice ? parseFloat(filters.maxPrice) : null;
-    
-    if (minPrice !== null && ad.price < minPrice) return false;
-    if (maxPrice !== null && ad.price > maxPrice) return false;
-    
-    return true;
   });
 
   const hasActiveFilters = filters.minPrice || filters.maxPrice || filters.sortBy !== 'newest' || searchQuery;
@@ -318,68 +327,104 @@ export default function AdsList() {
           </div>
         ) : (
           <div className="grid grid-cols-1 grid-cols-sm-2 grid-cols-md-3 grid-cols-lg-4">
-            {filteredAds.map(ad => (
-              <div key={ad.id} style={{ position: 'relative' }}>
-                <Link href={`/ad/${ad.id}`}>
-                  <a className="ad-card" style={{ textDecoration: 'none' }}>
-                    {ad.images && ad.images.length > 0 ? (
-                      <img
-                        src={ad.images[0]}
-                        alt={ad.title}
-                        className="ad-image"
-                      />
-                    ) : (
-                      <div className="ad-image" style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '48px'
-                      }}>
-                        📦
-                      </div>
-                    )}
-                    <div className="ad-content">
-                      <div className="ad-title">{ad.title}</div>
-                      <div className="ad-price" style={{
-                        color: (ad.priceType === 'free') ? '#22c55e' : undefined
-                      }}>
-                        {formatPrice({ amount: ad.price, type: ad.priceType || 'fixed' })}
-                      </div>
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginTop: '4px'
-                      }}>
-                        <div className="ad-location">📍 {ad.city}</div>
-                        {ad.views !== undefined && ad.views > 0 && (
-                          <div style={{
-                            fontSize: '12px',
-                            color: 'var(--text-secondary)',
+            {filteredAds.map(ad => {
+              try {
+                // Safety checks for legacy data
+                const safeAd = {
+                  id: ad.id,
+                  title: ad.title || 'إعلان بدون عنوان',
+                  description: ad.description || '',
+                  price: ad.price || 0,
+                  priceType: ad.priceType || 'fixed',
+                  category: ad.category || '',
+                  city: ad.city || 'غير محدد',
+                  images: Array.isArray(ad.images) ? ad.images : [],
+                  views: ad.views || 0,
+                  createdAt: ad.createdAt
+                };
+                
+                return (
+                  <div key={safeAd.id} style={{ position: 'relative' }}>
+                    <Link href={`/ad/${safeAd.id}`}>
+                      <a className="ad-card" style={{ textDecoration: 'none' }}>
+                        {safeAd.images.length > 0 ? (
+                          <img
+                            src={safeAd.images[0]}
+                            alt={safeAd.title}
+                            className="ad-image"
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              const parent = (e.target as HTMLImageElement).parentElement;
+                              if (parent) {
+                                const fallback = document.createElement('div');
+                                fallback.className = 'ad-image';
+                                fallback.style.display = 'flex';
+                                fallback.style.alignItems = 'center';
+                                fallback.style.justifyContent = 'center';
+                                fallback.style.fontSize = '48px';
+                                fallback.textContent = '📦';
+                                parent.insertBefore(fallback, e.target);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="ad-image" style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px'
+                            justifyContent: 'center',
+                            fontSize: '48px'
                           }}>
-                            <span>👁️</span>
-                            <span>{ad.views}</span>
+                            📦
                           </div>
                         )}
-                      </div>
+                        <div className="ad-content">
+                          <div className="ad-title">{safeAd.title}</div>
+                          <div className="ad-price" style={{
+                            color: (safeAd.priceType === 'free') ? '#22c55e' : undefined
+                          }}>
+                            {formatPrice({ amount: safeAd.price, type: safeAd.priceType })}
+                          </div>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginTop: '4px'
+                          }}>
+                            <div className="ad-location">📍 {safeAd.city}</div>
+                            {safeAd.views > 0 && (
+                              <div style={{
+                                fontSize: '12px',
+                                color: 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}>
+                                <span>👁️</span>
+                                <span>{safeAd.views}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </a>
+                    </Link>
+                    
+                    {/* Favorite Button Overlay */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      left: '12px',
+                      zIndex: 10
+                    }}>
+                      <FavoriteButton adId={safeAd.id} size="medium" />
                     </div>
-                  </a>
-                </Link>
-                
-                {/* Favorite Button Overlay */}
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  left: '12px',
-                  zIndex: 10
-                }}>
-                  <FavoriteButton adId={ad.id} size="medium" />
-                </div>
-              </div>
-            ))}
+                  </div>
+                );
+              } catch (error) {
+                console.error('Error rendering ad:', ad?.id, error);
+                return null; // Skip corrupted ads silently
+              }
+            })}
           </div>
         )}
       </div>
