@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useRoute, Link, useLocation } from 'wouter';
-import { doc, getDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, collection, query, where, getDocs, addDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
+import FavoriteButton from '../components/FavoriteButton';
+import ReportModal from '../components/ReportModal';
 import { formatPrice, type PriceType } from '../constants/categories';
 
 interface Ad {
@@ -18,6 +20,7 @@ interface Ad {
   userId: string;
   username: string;
   createdAt: any;
+  views?: number;
 }
 
 export default function AdDetails() {
@@ -30,12 +33,26 @@ export default function AdDetails() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [startingChat, setStartingChat] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [sellerRating, setSellerRating] = useState<{ sum: number; count: number } | null>(null);
 
   useEffect(() => {
     if (params?.id) {
       loadAd(params.id);
+      incrementViewCount(params.id);
     }
   }, [params?.id]);
+
+  const incrementViewCount = async (adId: string) => {
+    try {
+      const adRef = doc(db, 'ads', adId);
+      await updateDoc(adRef, {
+        views: increment(1)
+      });
+    } catch (error) {
+      console.error('Error incrementing view count:', error);
+    }
+  };
 
   const loadAd = async (id: string) => {
     try {
@@ -43,7 +60,22 @@ export default function AdDetails() {
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
-        setAd(docSnap.data() as Ad);
+        const adData = docSnap.data() as Ad;
+        setAd(adData);
+        
+        // Load seller rating
+        if (adData.userId) {
+          const sellerDoc = await getDoc(doc(db, 'users', adData.userId));
+          if (sellerDoc.exists()) {
+            const sellerData = sellerDoc.data();
+            if (sellerData.ratingSum && sellerData.ratingCount) {
+              setSellerRating({
+                sum: sellerData.ratingSum,
+                count: sellerData.ratingCount
+              });
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading ad:', error);
@@ -187,6 +219,10 @@ export default function AdDetails() {
 
   return (
     <div>
+      <Helmet>
+        <title>{ad ? `${ad.title} | Bare` : 'Bare'}</title>
+        <meta name="description" content={ad ? ad.description.substring(0, 160) : 'منصة للإعلانات المبوبة'} />
+      </Helmet>
       <Navbar />
       
       <div className="container py-8">
@@ -232,11 +268,27 @@ export default function AdDetails() {
 
           {/* Details */}
           <div className="card">
-            <h1 className="text-3xl font-bold mb-4">{ad.title}</h1>
-            <div className="text-3xl font-bold mb-6" style={{
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <h1 className="text-3xl font-bold" style={{ flex: 1 }}>{ad.title}</h1>
+              {params?.id && <FavoriteButton adId={params.id} size="large" />}
+            </div>
+            <div className="text-3xl font-bold mb-2" style={{
               color: (ad.priceType === 'free') ? '#22c55e' : '#22c55e'
             }}>
               {formatPrice({ amount: ad.price, type: ad.priceType || 'fixed' })}
+            </div>
+            
+            {/* View Count */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '14px',
+              color: 'var(--text-secondary)',
+              marginBottom: '24px'
+            }}>
+              <span>👁️</span>
+              <span>{ad.views || 0} مشاهدة</span>
             </div>
             
             <div className="mb-6">
@@ -259,7 +311,43 @@ export default function AdDetails() {
 
             <div className="border-t pt-4">
               <h3 className="font-semibold mb-2">معلومات البائع</h3>
-              <p className="text-gray-700">👤 {ad.username}</p>
+              <Link href={`/seller/${ad.userId}`}>
+                <a style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  textDecoration: 'none',
+                  color: 'var(--text-primary)',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <span style={{ fontSize: '24px' }}>👤</span>
+                  <div>
+                    <div style={{ fontWeight: '600' }}>{ad.username}</div>
+                    {sellerRating && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '14px'
+                      }}>
+                        <span>⭐</span>
+                        <span style={{ color: '#f59e0b', fontWeight: '600' }}>
+                          {(sellerRating.sum / sellerRating.count).toFixed(1)}
+                        </span>
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          ({sellerRating.count} تقييم)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ marginRight: 'auto', fontSize: '18px' }}>›</span>
+                </a>
+              </Link>
             </div>
 
             {/* Contact Seller Button - Only visible to non-owners */}
@@ -269,9 +357,21 @@ export default function AdDetails() {
                   onClick={handleContactSeller}
                   disabled={startingChat}
                   className="btn btn-primary"
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', marginBottom: '12px' }}
                 >
                   {startingChat ? 'جاري الفتح...' : '💬 راسل البائع'}
+                </button>
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="btn"
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: '#dc2626',
+                    border: '1px solid var(--border-color)'
+                  }}
+                >
+                  🚩 الإبلاغ عن هذا الإعلان
                 </button>
               </div>
             )}
@@ -358,6 +458,16 @@ export default function AdDetails() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Report Modal */}
+      {ad && params?.id && (
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          adId={params.id}
+          adTitle={ad.title}
+        />
       )}
     </div>
   );

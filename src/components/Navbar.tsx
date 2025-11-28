@@ -8,12 +8,37 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="container navbar-content">
+        {/* Logo */}
         <Link href="/">
           <a className="logo">
             📦 Bare
           </a>
         </Link>
 
+        {/* Desktop Navigation Links (hidden on mobile) */}
+        <div className="desktop-nav-links">
+          <Link href="/">
+            <a className={`nav-link ${location === '/' ? 'active' : ''}`}>
+              🏠 الرئيسية
+            </a>
+          </Link>
+          {user && (
+            <>
+              <Link href="/messages">
+                <a className={`nav-link ${location === '/messages' || location === '/inbox' ? 'active' : ''}`}>
+                  💬 الرسائل
+                </a>
+              </Link>
+              <Link href="/favorites">
+                <a className={`nav-link ${location === '/favorites' ? 'active' : ''}`}>
+                  ❤️ المفضلة
+                </a>
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* Auth Buttons */}
         <div className="flex items-center gap-4">
           {user ? (
             <>
@@ -23,13 +48,10 @@ export default function Navbar() {
                 </a>
               </Link>
               <Link href="/profile">
-                <a className="btn btn-outline">
+                <a className="btn btn-outline desktop-only">
                   حسابي
                 </a>
               </Link>
-              <button onClick={logout} className="btn btn-outline">
-                تسجيل الخروج
-              </button>
             </>
           ) : (
             <>
@@ -39,7 +61,7 @@ export default function Navbar() {
                 </a>
               </Link>
               <Link href="/register">
-                <a className="btn btn-primary">
+                <a className="btn btn-primary desktop-only">
                   إنشاء حساب
                 </a>
               </Link>
@@ -50,4 +72,3 @@ export default function Navbar() {
     </nav>
   );
 }
-

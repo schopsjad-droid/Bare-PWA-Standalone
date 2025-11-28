@@ -65,6 +65,7 @@ export default function CreateAd() {
         images: imageUrls,
         userId: user.uid,
         username: userProfile?.username || 'مستخدم',
+        views: 0,
         createdAt: serverTimestamp(),
       });
 

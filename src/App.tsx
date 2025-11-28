@@ -13,6 +13,10 @@ import EditAd from './pages/EditAd';
 import Inbox from './pages/Inbox';
 import ChatRoom from './pages/ChatRoom';
 import AccountSettings from './pages/AccountSettings';
+import Favorites from './pages/Favorites';
+import SellerProfile from './pages/SellerProfile';
+import About from './pages/About';
+import Privacy from './pages/Privacy';
 
 function App() {
   return (
@@ -32,6 +36,10 @@ function App() {
         <Route path="/messages" component={Inbox} />
         <Route path="/chat/:chatId" component={ChatRoom} />
         <Route path="/account-settings" component={AccountSettings} />
+        <Route path="/favorites" component={Favorites} />
+        <Route path="/seller/:sellerId" component={SellerProfile} />
+        <Route path="/about" component={About} />
+        <Route path="/privacy" component={Privacy} />
         <Route>404 - Page Not Found</Route>
       </Switch>
     </AuthProvider>

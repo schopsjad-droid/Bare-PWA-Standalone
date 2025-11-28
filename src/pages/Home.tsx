@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
+import { Helmet } from 'react-helmet-async';
+import Footer from '../components/Footer';
 
 interface Category {
   id: string;
@@ -288,6 +290,10 @@ export default function Home() {
 
   return (
     <div style={{ minHeight: '100vh', paddingBottom: '80px' }}>
+      <Helmet>
+        <title>Bare - بيع وشراء في سوريا</title>
+        <meta name="description" content="منصة للإعلانات المبوبة. اشترِ وبِع سيارات، عقارات، إلكترونيات وأكثر بسهولة وأمان." />
+      </Helmet>
       {/* Top Green Accent Line */}
       <div className="top-accent"></div>
 
@@ -366,7 +372,7 @@ export default function Home() {
       </div>
 
       {/* Bottom Navigation */}
-      <div style={{
+      <div className="mobile-bottom-nav" style={{
         position: 'fixed',
         bottom: 0,
         left: 0,
@@ -449,6 +455,8 @@ export default function Home() {
           </a>
         </Link>
       </div>
+
+      <Footer />
     </div>
   );
 }
