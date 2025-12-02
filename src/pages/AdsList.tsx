@@ -3,7 +3,7 @@ import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Link, useRoute } from 'wouter';
 import { Helmet } from 'react-helmet-async';
-import { formatPrice, type PriceType } from '../constants/categories';
+import { formatPrice, type PriceType, findCategoryById } from '../constants/categories';
 import FilterModal, { type FilterState, type SortOption } from '../components/FilterModal';
 import FavoriteButton from '../components/FavoriteButton';
 import Footer from '../components/Footer';
@@ -149,6 +149,10 @@ export default function AdsList() {
   });
 
   const hasActiveFilters = filters.minPrice || filters.maxPrice || filters.sortBy !== 'newest' || searchQuery;
+
+  // Get category name for page title
+  const category = findCategoryById(categoryId);
+  const categoryName = category?.name || (categoryId === 'all' ? 'جميع الفئات' : 'الإعلانات');
 
   return (
     <div style={{ minHeight: '100vh', paddingBottom: '80px' }}>
