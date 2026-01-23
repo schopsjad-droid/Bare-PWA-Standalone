@@ -6,6 +6,7 @@
     "region": "europe-west1"
   }],
   "firestore": {
+    "indexes": "firestore.indexes.json",
     "rules": "firestore.rules"
   },
   "storage": {
