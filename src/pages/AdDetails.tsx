@@ -5,6 +5,7 @@ import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
+import { Helmet } from 'react-helmet-async';
 import FavoriteButton from '../components/FavoriteButton';
 import ReportModal from '../components/ReportModal';
 import { formatPrice, type PriceType } from '../constants/categories';
