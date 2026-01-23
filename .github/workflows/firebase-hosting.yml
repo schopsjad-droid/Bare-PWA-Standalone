@@ -1,5 +1,4 @@
 name: Deploy to Firebase Hosting
-
 on:
   push:
     branches:
@@ -7,7 +6,6 @@ on:
   pull_request:
     branches:
       - main
-
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
@@ -30,6 +28,12 @@ jobs:
       - name: Build
         run: pnpm build
         
+      - name: Deploy Firestore Indexes
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > $HOME/firebase-service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
+          npx firebase-tools deploy --only firestore:indexes --project bare-android-app --non-interactive
+        
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -37,4 +41,3 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
           projectId: bare-android-app
-
