@@ -7,6 +7,7 @@ import CreateAd from './pages/CreateAd';
 import AdDetails from './pages/AdDetails';
 import Profile from './pages/Profile';
 import AdsList from './pages/AdsList';
+import AdminMigrate from './pages/AdminMigrate';
 import VerifyEmail from './pages/VerifyEmail';
 import CompleteProfile from './pages/CompleteProfile';
 import EditAd from './pages/EditAd';

@@ -1,0 +1,15 @@
+--- src/pages/CreateAd.tsx
++++ src/pages/CreateAd.tsx
+@@ -50,7 +50,11 @@
+         imageUrls.push(url);
+       }
+       // Determine final category (use subcategory if selected, otherwise main category)
+-      const finalCategory = subcategory || mainCategory;
++      // Auto-fallback: if no subcategory selected, append "-all" to main category
++      const finalCategory = subcategory || `${mainCategory}-all`;
++      
++      // Set default status to 'approved' so ads are visible immediately
++      const status = 'approved';
+       // Create ad document
+       await addDoc(collection(db, 'ads'), {
+         title,

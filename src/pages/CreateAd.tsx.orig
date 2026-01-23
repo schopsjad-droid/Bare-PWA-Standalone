@@ -51,11 +51,7 @@ export default function CreateAd() {
       }
 
       // Determine final category (use subcategory if selected, otherwise main category)
-      // Auto-fallback: if no subcategory selected, append "-all" to main category
-      const finalCategory = subcategory || `${mainCategory}-all`;
-      
-      // Set default status to 'approved' so ads are visible immediately
-      const status = 'approved';
+      const finalCategory = subcategory || mainCategory;
 
       // Create ad document
       await addDoc(collection(db, 'ads'), {
@@ -65,7 +61,6 @@ export default function CreateAd() {
         priceType,
         category: finalCategory,
         mainCategory,
-        status,
         city,
         images: imageUrls,
         userId: user.uid,
