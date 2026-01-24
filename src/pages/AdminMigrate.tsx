@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../config/firebase';
 import Navbar from '../components/Navbar';
 
 const MAIN_CATEGORIES = [
