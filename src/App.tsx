@@ -37,6 +37,7 @@ function App() {
         <Route path="/messages" component={Inbox} />
         <Route path="/chat/:chatId" component={ChatRoom} />
         <Route path="/account-settings" component={AccountSettings} />
+        <Route path="/admin/migrate" component={AdminMigrate} />
         <Route path="/favorites" component={Favorites} />
         <Route path="/seller/:sellerId" component={SellerProfile} />
         <Route path="/about" component={About} />
