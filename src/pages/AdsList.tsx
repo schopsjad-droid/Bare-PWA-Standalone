@@ -34,7 +34,8 @@ export default function AdsList() {
   const [filters, setFilters] = useState<FilterState>({
     minPrice: '',
     maxPrice: '',
-    sortBy: 'newest'
+    sortBy: 'newest',
+    city: ''
   });
 
   useEffect(() => {
@@ -115,7 +116,8 @@ export default function AdsList() {
     setFilters({
       minPrice: '',
       maxPrice: '',
-      sortBy: 'newest'
+      sortBy: 'newest',
+      city: ''
     });
     setSearchQuery('');
   };
@@ -132,6 +134,9 @@ export default function AdsList() {
           (ad.description || '').toLowerCase().includes(searchQuery.toLowerCase());
         if (!matchesSearch) return false;
       }
+      
+      // City filter
+      if (filters.city && ad.city !== filters.city) return false;
       
       // Price range filter (with safety checks)
       const adPrice = ad.price || 0;
