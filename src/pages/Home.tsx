@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { Link, useLocation } from 'wouter';
 import { Helmet } from 'react-helmet-async';
 import Footer from '../components/Footer';
@@ -15,6 +17,38 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
+  // Fetch category counts from Firestore
+  useEffect(() => {
+    const fetchCategoryCounts = async () => {
+      try {
+        const adsRef = collection(db, 'ads');
+        
+        // Get all approved ads
+        const approvedQuery = query(adsRef, where('status', '==', 'approved'));
+        const snapshot = await getDocs(approvedQuery);
+        
+        // Count by mainCategory
+        const counts: Record<string, number> = { all: 0 };
+        
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          counts.all++;
+          
+          if (data.mainCategory) {
+            counts[data.mainCategory] = (counts[data.mainCategory] || 0) + 1;
+          }
+        });
+        
+        setCategoryCounts(counts);
+      } catch (error) {
+        console.error('Error fetching category counts:', error);
+      }
+    };
+
+    fetchCategoryCounts();
+  }, []);
 
   // Main categories based on Kleinanzeigen specification
   const mainCategories: Category[] = [
@@ -360,8 +394,8 @@ export default function Home() {
             </div>
             <div className="category-content">
               <div className="category-title">{category.name}</div>
-              {category.count !== undefined && (
-                <div className="category-count">{category.count} إعلان</div>
+              {(categoryCounts[category.id] !== undefined || category.count !== undefined) && (
+                <div className="category-count">{categoryCounts[category.id] ?? category.count ?? 0} إعلان</div>
               )}
             </div>
             {category.subcategories && category.subcategories.length > 0 && (
