@@ -9,6 +9,7 @@ import { Helmet } from 'react-helmet-async';
 import FavoriteButton from '../components/FavoriteButton';
 import ReportModal from '../components/ReportModal';
 import { formatPrice, type PriceType } from '../constants/categories';
+import { getCategoryAttributes, formatAttributeValue } from '../config/categoryAttributes';
 
 interface Ad {
   title: string;
@@ -16,12 +17,14 @@ interface Ad {
   price: number;
   priceType?: PriceType;
   category: string;
+  mainCategory?: string;
   city: string;
   images: string[];
   userId: string;
   username: string;
   createdAt: any;
   views?: number;
+  attributes?: Record<string, any>;
 }
 
 export default function AdDetails() {
@@ -298,6 +301,50 @@ export default function AdDetails() {
                 {ad.description}
               </p>
             </div>
+            {/* Dynamic Category Attributes */}
+            {ad.attributes && ad.mainCategory && getCategoryAttributes(ad.mainCategory) && (
+              <div className="mb-6" style={{
+                backgroundColor: 'var(--bg-secondary)',
+                padding: '1rem',
+                borderRadius: '0.75rem',
+                border: '1px solid var(--border-color)'
+              }}>
+                <h3 className="font-semibold mb-3" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  📋 المواصفات
+                </h3>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+                  gap: '0.75rem' 
+                }}>
+                  {getCategoryAttributes(ad.mainCategory)?.fields.map(field => {
+                    const value = ad.attributes?.[field.id];
+                    if (value === undefined || value === null || value === '') return null;
+                    return (
+                      <div key={field.id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem',
+                        backgroundColor: 'var(--card-bg)',
+                        borderRadius: '0.5rem'
+                      }}>
+                        <span style={{ fontSize: '1.25rem' }}>{field.icon}</span>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {field.labelAr}
+                          </div>
+                          <div style={{ fontWeight: '600' }}>
+                            {formatAttributeValue(field, value, true)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
 
             <div className="grid grid-cols-1 grid-cols-sm-2 gap-4 mb-6">
               <div>

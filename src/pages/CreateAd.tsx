@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { MAIN_CATEGORIES, SYRIAN_CITIES, getSubcategories, type PriceType } from '../constants/categories';
+import { getCategoryAttributes, hasCustomAttributes, type AttributeField } from '../config/categoryAttributes';
 
 export default function CreateAd() {
   const { user, userProfile } = useAuth();
@@ -22,6 +23,17 @@ export default function CreateAd() {
   const [subcategory, setSubcategory] = useState('');
   const [city, setCity] = useState('');
   const [images, setImages] = useState<File[]>([]);
+  // Dynamic category attributes
+  const [customAttributes, setCustomAttributes] = useState<Record<string, any>>({});
+  
+  // Get category config when mainCategory changes
+  const categoryConfig = getCategoryAttributes(mainCategory);
+  
+  // Handle custom attribute change
+  const handleAttributeChange = (fieldId: string, value: any) => {
+    setCustomAttributes(prev => ({ ...prev, [fieldId]: value }));
+  };
+
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -33,6 +45,7 @@ export default function CreateAd() {
   const handleMainCategoryChange = (value: string) => {
     setMainCategory(value);
     setSubcategory(''); // Reset subcategory when main category changes
+    setCustomAttributes({}); // Reset custom attributes when category changes
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,6 +85,8 @@ export default function CreateAd() {
         username: userProfile?.username || 'مستخدم',
         views: 0,
         createdAt: serverTimestamp(),
+        // Custom category attributes
+        ...(Object.keys(customAttributes).length > 0 && { attributes: customAttributes }),
       });
 
       setLocation('/');
@@ -215,6 +230,105 @@ export default function CreateAd() {
                 </select>
               </div>
             )}
+            {/* Dynamic Category Attributes */}
+            {categoryConfig && categoryConfig.fields.length > 0 && (
+              <div className="mb-6" style={{ 
+                backgroundColor: 'var(--card-bg)', 
+                padding: '1rem', 
+                borderRadius: '0.5rem',
+                border: '1px solid var(--border-color)'
+              }}>
+                <h3 style={{ 
+                  fontSize: '1.1rem', 
+                  fontWeight: 'bold', 
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  📋 معلومات إضافية ({categoryConfig.categoryNameAr})
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  {categoryConfig.fields.map((field: AttributeField) => (
+                    <div key={field.id}>
+                      <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>{field.icon}</span>
+                        <span>{field.labelAr}</span>
+                        {field.required && <span style={{ color: '#ef4444' }}>*</span>}
+                      </label>
+                      
+                      {field.type === 'text' && (
+                        <input
+                          type="text"
+                          className="input"
+                          value={customAttributes[field.id] || ''}
+                          onChange={(e) => handleAttributeChange(field.id, e.target.value)}
+                          placeholder={field.placeholderAr}
+                          required={field.required}
+                        />
+                      )}
+                      
+                      {field.type === 'number' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input
+                            type="number"
+                            className="input"
+                            style={{ flex: 1 }}
+                            value={customAttributes[field.id] || ''}
+                            onChange={(e) => handleAttributeChange(field.id, e.target.value ? Number(e.target.value) : '')}
+                            placeholder={field.placeholderAr}
+                            min={field.min}
+                            max={field.max}
+                            required={field.required}
+                          />
+                          {field.unitAr && <span style={{ color: 'var(--text-secondary)' }}>{field.unitAr}</span>}
+                        </div>
+                      )}
+                      
+                      {field.type === 'select' && (
+                        <select
+                          className="input"
+                          value={customAttributes[field.id] || ''}
+                          onChange={(e) => handleAttributeChange(field.id, e.target.value)}
+                          required={field.required}
+                        >
+                          <option value="">اختر...</option>
+                          {field.options?.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.labelAr}</option>
+                          ))}
+                        </select>
+                      )}
+                      
+                      {field.type === 'boolean' && (
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                            <input
+                              type="radio"
+                              name={field.id}
+                              checked={customAttributes[field.id] === true}
+                              onChange={() => handleAttributeChange(field.id, true)}
+                              style={{ marginLeft: '0.5rem' }}
+                            />
+                            <span>نعم</span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                            <input
+                              type="radio"
+                              name={field.id}
+                              checked={customAttributes[field.id] === false}
+                              onChange={() => handleAttributeChange(field.id, false)}
+                              style={{ marginLeft: '0.5rem' }}
+                            />
+                            <span>لا</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             <div className="mb-4">
               <label className="label">المدينة</label>
