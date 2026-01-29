@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useUnreadMessages } from '../contexts/UnreadMessagesContext';
 import { Link } from 'wouter';
 import Navbar from '../components/Navbar';
 import ProtectedRoute from '../components/ProtectedRoute';
@@ -22,6 +23,7 @@ interface Chat {
 
 export default function Inbox() {
   const { user, userProfile } = useAuth();
+  const { unreadByChat } = useUnreadMessages();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [indexFixUrl, setIndexFixUrl] = useState<string | null>(null);
@@ -218,11 +220,31 @@ export default function Inbox() {
                         marginBottom: '4px'
                       }}>
                         <div style={{
-                          fontWeight: 600,
+                          fontWeight: unreadByChat[chat.id] ? 700 : 600,
                           color: 'var(--text-primary)',
-                          fontSize: '15px'
+                          fontSize: '15px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
                         }}>
                           {getOtherPartyName(chat)}
+                          {unreadByChat[chat.id] > 0 && (
+                            <span style={{
+                              backgroundColor: '#ef4444',
+                              color: 'white',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              minWidth: '20px',
+                              height: '20px',
+                              borderRadius: '10px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '0 6px'
+                            }}>
+                              {unreadByChat[chat.id]}
+                            </span>
+                          )}
                         </div>
                         <div style={{
                           fontSize: '12px',

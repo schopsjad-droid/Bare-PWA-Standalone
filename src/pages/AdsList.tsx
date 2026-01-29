@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import MobileBottomNav from '../components/MobileBottomNav';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Link, useRoute } from 'wouter';
@@ -447,89 +448,7 @@ export default function AdsList() {
       />
 
       {/* Bottom Navigation */}
-      <div className="mobile-bottom-nav" style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: 'var(--bg-secondary)',
-        borderTop: '1px solid var(--border-color)',
-        display: 'flex',
-        justifyContent: 'space-around',
-        padding: '12px 0',
-        zIndex: 999
-      }}>
-        <Link href="/">
-          <a style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '4px',
-            color: 'var(--accent-green)',
-            textDecoration: 'none',
-            fontSize: '12px'
-          }}>
-            <span style={{ fontSize: '20px' }}>🏠</span>
-            <span>الرئيسية</span>
-          </a>
-        </Link>
-        <Link href="/favorites">
-          <a style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '4px',
-            color: 'var(--text-secondary)',
-            textDecoration: 'none',
-            fontSize: '12px'
-          }}>
-            <span style={{ fontSize: '20px' }}>❤️</span>
-            <span>المفضلة</span>
-          </a>
-        </Link>
-        <Link href="/create-ad">
-          <a style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '4px',
-            color: 'var(--text-secondary)',
-            textDecoration: 'none',
-            fontSize: '12px'
-          }}>
-            <span style={{ fontSize: '20px' }}>➕</span>
-            <span>إضافة</span>
-          </a>
-        </Link>
-        <Link href="/messages">
-          <a style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '4px',
-            color: 'var(--text-secondary)',
-            textDecoration: 'none',
-            fontSize: '12px'
-          }}>
-            <span style={{ fontSize: '20px' }}>💬</span>
-            <span>الرسائل</span>
-          </a>
-        </Link>
-        <Link href="/profile">
-          <a style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '4px',
-            color: 'var(--text-secondary)',
-            textDecoration: 'none',
-            fontSize: '12px'
-          }}>
-            <span style={{ fontSize: '20px' }}>👤</span>
-            <span>حسابي</span>
-          </a>
-        </Link>
-      </div>
+      <MobileBottomNav />
 
       <Footer />
     </div>

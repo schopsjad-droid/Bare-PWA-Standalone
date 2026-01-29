@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRoute, Link, useLocation } from 'wouter';
 import { 
-  doc, 
+  doc,
+  increment, 
   getDoc, 
   collection, 
   query, 
@@ -54,6 +55,14 @@ export default function ChatRoom() {
         const chatDoc = await getDoc(doc(db, 'chats', params.chatId));
         if (chatDoc.exists()) {
           setChat(chatDoc.data() as Chat);
+          
+          // Mark messages as read for current user
+          if (user) {
+            const unreadField = `unreadCount_${user.uid}`;
+            await updateDoc(doc(db, 'chats', params.chatId), {
+              [unreadField]: 0
+            });
+          }
         }
       } catch (error) {
         console.error('Error loading chat:', error);
