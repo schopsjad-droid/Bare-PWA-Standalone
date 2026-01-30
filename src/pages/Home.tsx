@@ -5,6 +5,7 @@ import { Link, useLocation } from 'wouter';
 import { Helmet } from 'react-helmet-async';
 import Footer from '../components/Footer';
 import MobileBottomNav from '../components/MobileBottomNav';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Category {
   id: string;
@@ -15,6 +16,7 @@ interface Category {
 }
 
 export default function Home() {
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -361,6 +363,26 @@ export default function Home() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ flex: 1, maxWidth: '500px' }}
           />
+          
+          {/* Login Button for Guests */}
+          {!user && (
+            <Link href="/login">
+              <a style={{
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                border: '1px solid var(--accent-green)',
+                borderRadius: '8px',
+                color: 'var(--accent-green)',
+                fontSize: '14px',
+                fontWeight: '600',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                marginRight: '8px'
+              }}>
+                دخول
+              </a>
+            </Link>
+          )}
         </div>
       </div>
 
