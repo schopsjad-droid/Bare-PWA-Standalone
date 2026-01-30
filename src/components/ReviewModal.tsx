@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,15 +8,32 @@ interface ReviewModalProps {
   onClose: () => void;
   sellerId: string;
   sellerName: string;
+  existingRating?: number | null;
+  existingReviewId?: string | null;
+  onRatingUpdated?: () => void;
 }
 
-export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: ReviewModalProps) {
+export default function ReviewModal({ 
+  isOpen, 
+  onClose, 
+  sellerId, 
+  sellerName,
+  existingRating = null,
+  existingReviewId = null,
+  onRatingUpdated
+}: ReviewModalProps) {
   const { user, userProfile } = useAuth();
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(existingRating || 0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const isEditing = existingRating !== null && existingReviewId !== null;
+
+  useEffect(() => {
+    if (isOpen && existingRating) {
+      setRating(existingRating);
+    }
+  }, [isOpen, existingRating]);
 
   if (!isOpen) return null;
 
@@ -38,29 +55,49 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
 
     setSubmitting(true);
     try {
-      // Add review to seller's reviews subcollection
-      await addDoc(collection(db, 'users', sellerId, 'reviews'), {
-        reviewerId: user.uid,
-        reviewerName: userProfile.username || 'مستخدم',
-        rating,
-        comment: comment.trim() || null,
-        createdAt: serverTimestamp()
-      });
-
-      // Update seller's rating summary
       const sellerRef = doc(db, 'users', sellerId);
-      await updateDoc(sellerRef, {
-        ratingSum: increment(rating),
-        ratingCount: increment(1)
-      });
+
+      if (isEditing && existingReviewId) {
+        // Update existing review
+        const reviewRef = doc(db, 'users', sellerId, 'reviews', existingReviewId);
+        const ratingDiff = rating - (existingRating || 0);
+        
+        await updateDoc(reviewRef, {
+          rating,
+          updatedAt: serverTimestamp()
+        });
+
+        // Update seller's rating summary (only the difference)
+        if (ratingDiff !== 0) {
+          await updateDoc(sellerRef, {
+            ratingSum: increment(ratingDiff)
+          });
+        }
+      } else {
+        // Add new review
+        await addDoc(collection(db, 'users', sellerId, 'reviews'), {
+          reviewerId: user.uid,
+          reviewerName: userProfile.username || 'مستخدم',
+          rating,
+          createdAt: serverTimestamp()
+        });
+
+        // Update seller's rating summary
+        await updateDoc(sellerRef, {
+          ratingSum: increment(rating),
+          ratingCount: increment(1)
+        });
+      }
 
       setSubmitted(true);
+      if (onRatingUpdated) {
+        onRatingUpdated();
+      }
       setTimeout(() => {
         onClose();
         setSubmitted(false);
         setRating(0);
-        setComment('');
-      }, 2000);
+      }, 1500);
     } catch (error) {
       console.error('Error submitting review:', error);
       alert('حدث خطأ أثناء إضافة التقييم. يرجى المحاولة مرة أخرى.');
@@ -72,9 +109,8 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
   const handleClose = () => {
     if (!submitting) {
       onClose();
-      setRating(0);
+      setRating(existingRating || 0);
       setHoveredRating(0);
-      setComment('');
       setSubmitted(false);
     }
   };
@@ -83,9 +119,9 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
     return (
       <div style={{
         display: 'flex',
-        gap: '8px',
         justifyContent: 'center',
-        marginBottom: '24px'
+        gap: '8px',
+        marginBottom: '12px'
       }}>
         {[1, 2, 3, 4, 5].map((star) => (
           <button
@@ -98,11 +134,12 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
             style={{
               background: 'none',
               border: 'none',
+              fontSize: '36px',
               cursor: submitting ? 'not-allowed' : 'pointer',
-              fontSize: '40px',
               padding: '4px',
               transition: 'transform 0.2s',
-              transform: (hoveredRating >= star || rating >= star) ? 'scale(1.1)' : 'scale(1)'
+              transform: (hoveredRating >= star || rating >= star) ? 'scale(1.1)' : 'scale(1)',
+              filter: submitting ? 'grayscale(50%)' : 'none'
             }}
           >
             {(hoveredRating >= star || rating >= star) ? '⭐' : '☆'}
@@ -116,6 +153,7 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
     <>
       {/* Backdrop */}
       <div
+        onClick={handleClose}
         style={{
           position: 'fixed',
           top: 0,
@@ -123,12 +161,11 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
           right: 0,
           bottom: 0,
           backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1000,
-          animation: 'fadeIn 0.2s ease-in-out'
+          zIndex: 9998,
+          animation: 'fadeIn 0.2s ease-out'
         }}
-        onClick={handleClose}
       />
-
+      
       {/* Modal */}
       <div
         style={{
@@ -137,30 +174,34 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
           left: 0,
           right: 0,
           backgroundColor: 'var(--bg-primary)',
-          borderTopLeftRadius: '16px',
-          borderTopRightRadius: '16px',
+          borderTopLeftRadius: '20px',
+          borderTopRightRadius: '20px',
           padding: '24px',
-          zIndex: 1001,
-          maxHeight: '80vh',
-          overflowY: 'auto',
+          zIndex: 9999,
           animation: 'slideUp 0.3s ease-out',
-          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)'
+          maxHeight: '70vh',
+          overflowY: 'auto'
         }}
       >
         {submitted ? (
-          // Success Message
-          <div style={{ textAlign: 'center', padding: '32px 0' }}>
+          <div style={{
+            textAlign: 'center',
+            padding: '40px 20px'
+          }}>
             <div style={{ fontSize: '64px', marginBottom: '16px' }}>✅</div>
             <h2 style={{
               fontSize: '20px',
-              fontWeight: 'bold',
+              fontWeight: '600',
               color: 'var(--text-primary)',
               marginBottom: '8px'
             }}>
-              شكراً لك!
+              {isEditing ? 'تم تحديث التقييم!' : 'شكراً لتقييمك!'}
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-              تم إضافة تقييمك بنجاح
+            <p style={{
+              fontSize: '14px',
+              color: 'var(--text-secondary)'
+            }}>
+              تقييمك يساعد الآخرين في اتخاذ قرارات أفضل
             </p>
           </div>
         ) : (
@@ -170,14 +211,15 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '24px'
+              marginBottom: '20px'
             }}>
               <h2 style={{
-                fontSize: '20px',
-                fontWeight: 'bold',
-                color: 'var(--text-primary)'
+                fontSize: '18px',
+                fontWeight: '600',
+                color: 'var(--text-primary)',
+                margin: 0
               }}>
-                ⭐ تقييم البائع
+                {isEditing ? 'تعديل التقييم' : 'تقييم البائع'}
               </h2>
               <button
                 onClick={handleClose}
@@ -209,7 +251,7 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
                 color: 'var(--text-secondary)',
                 marginBottom: '4px'
               }}>
-                تقييم البائع:
+                {isEditing ? 'تعديل تقييمك لـ:' : 'تقييم البائع:'}
               </div>
               <div style={{
                 fontSize: '16px',
@@ -247,45 +289,6 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
               )}
             </div>
 
-            {/* Comment Text Area */}
-            <div style={{ marginBottom: '24px' }}>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                marginBottom: '8px',
-                color: 'var(--text-primary)'
-              }}>
-                تعليق (اختياري)
-              </h3>
-              <textarea
-                placeholder="شارك تجربتك مع هذا البائع..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                disabled={submitting}
-                maxLength={500}
-                style={{
-                  width: '100%',
-                  minHeight: '100px',
-                  padding: '12px',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  resize: 'vertical',
-                  fontFamily: 'inherit'
-                }}
-              />
-              <div style={{
-                fontSize: '12px',
-                color: 'var(--text-secondary)',
-                marginTop: '4px',
-                textAlign: 'left'
-              }}>
-                {comment.length}/500
-              </div>
-            </div>
-
             {/* Action Buttons */}
             <div style={{
               display: 'grid',
@@ -318,13 +321,12 @@ export default function ReviewModal({ isOpen, onClose, sellerId, sellerName }: R
                   cursor: (submitting || rating === 0) ? 'not-allowed' : 'pointer'
                 }}
               >
-                {submitting ? 'جاري الإرسال...' : 'إرسال التقييم'}
+                {submitting ? 'جاري الإرسال...' : (isEditing ? 'تحديث التقييم' : 'إرسال التقييم')}
               </button>
             </div>
           </>
         )}
       </div>
-
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }

@@ -45,12 +45,14 @@ export default function SellerProfile() {
   const [loading, setLoading] = useState(true);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'ads' | 'reviews'>('ads');
+  const [userExistingRating, setUserExistingRating] = useState<number | null>(null);
+  const [userExistingReviewId, setUserExistingReviewId] = useState<string | null>(null);
 
   useEffect(() => {
     if (sellerId) {
       loadSellerData();
     }
-  }, [sellerId]);
+  }, [sellerId, user]);
 
   const loadSellerData = async () => {
     try {
@@ -72,11 +74,24 @@ export default function SellerProfile() {
       })) as Review[];
       setReviews(reviewsData);
 
-      // Load seller's ads
+      // Check if current user has already rated this seller
+      if (user) {
+        const userReview = reviewsData.find(r => r.reviewerId === user.uid);
+        if (userReview) {
+          setUserExistingRating(userReview.rating);
+          setUserExistingReviewId(userReview.id);
+        } else {
+          setUserExistingRating(null);
+          setUserExistingReviewId(null);
+        }
+      }
+
+      // Load seller's ads (only approved ones)
       const adsRef = collection(db, 'ads');
       const adsQuery = query(
         adsRef,
         where('userId', '==', sellerId),
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc')
       );
       const adsSnapshot = await getDocs(adsQuery);
