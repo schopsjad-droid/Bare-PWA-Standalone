@@ -133,12 +133,44 @@ export default function AdDetails() {
         const chatId = existingChats.docs[0].id;
         setLocation(`/chat/${chatId}`);
       } else {
-        // Validate required fields before creating chat
+        // ========== STRICT GUARD CLAUSES ==========
+        
+        // 1. Validate Seller ID
         if (!ad.userId) {
-          alert('خطأ: لا يمكن العثور على معرف البائع');
+          console.error("⛔ CRITICAL ERROR: Ad has no userId (sellerId)!", ad);
+          alert("خطأ: لا يمكن التواصل، بيانات البائع غير مكتملة.");
           setStartingChat(false);
           return;
         }
+        
+        // 2. Validate Current User
+        if (!user?.uid) {
+          console.error("⛔ CRITICAL ERROR: User is not logged in properly!");
+          alert("يرجى تسجيل الدخول أولاً.");
+          setStartingChat(false);
+          return;
+        }
+        
+        // 3. Ensure no undefined in participants
+        const participants = [user.uid, ad.userId];
+        if (participants.includes(undefined as any) || participants.includes(null as any)) {
+          console.error("⛔ CRITICAL ERROR: Participants array contains undefined!", participants);
+          alert("خطأ داخلي: فشل تحديد أطراف المحادثة.");
+          setStartingChat(false);
+          return;
+        }
+        
+        // 4. Log all values for debugging
+        console.log("✅ GUARD PASSED - Creating chat with:");
+        console.log("  - adId:", params.id);
+        console.log("  - buyerId:", user.uid);
+        console.log("  - sellerId:", ad.userId);
+        console.log("  - participants:", participants);
+        console.log("  - adTitle:", ad.title);
+        console.log("  - buyerName:", userProfile.username);
+        console.log("  - sellerName:", ad.username);
+        
+        // ========== SAFE TO WRITE TO FIRESTORE ==========
         
         // Create new chat with safe values (no undefined allowed)
         const chatPayload: Record<string, any> = {
@@ -148,7 +180,7 @@ export default function AdDetails() {
           buyerName: userProfile.username || 'مستخدم',
           sellerId: ad.userId,
           sellerName: ad.username || 'بائع',
-          participants: [user.uid, ad.userId],
+          participants: participants,
           lastMessage: '',
           lastMessageTime: serverTimestamp(),
           createdAt: serverTimestamp()
@@ -160,6 +192,8 @@ export default function AdDetails() {
         } else {
           chatPayload.adImage = null;
         }
+        
+        console.log("📤 Final payload:", JSON.stringify(chatPayload, null, 2));
         
         const newChat = await addDoc(collection(db, 'chats'), chatPayload);
         
