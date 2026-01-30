@@ -133,30 +133,33 @@ export default function AdDetails() {
         const chatId = existingChats.docs[0].id;
         setLocation(`/chat/${chatId}`);
       } else {
-        // Create new chat - Build payload first for debugging
-        const chatPayload = {
+        // Validate required fields before creating chat
+        if (!ad.userId) {
+          alert('خطأ: لا يمكن العثور على معرف البائع');
+          setStartingChat(false);
+          return;
+        }
+        
+        // Create new chat with safe values (no undefined allowed)
+        const chatPayload: Record<string, any> = {
           adId: params.id,
-          adTitle: ad.title,
-          adImage: ad.images?.[0] || null,
+          adTitle: ad.title || 'إعلان',
           buyerId: user.uid,
-          buyerName: userProfile.username,
+          buyerName: userProfile.username || 'مستخدم',
           sellerId: ad.userId,
-          sellerName: ad.username,
+          sellerName: ad.username || 'بائع',
           participants: [user.uid, ad.userId],
           lastMessage: '',
-          lastMessageTime: serverTimestamp()
+          lastMessageTime: serverTimestamp(),
+          createdAt: serverTimestamp()
         };
         
-        // DEBUG: Log payload to check for undefined values
-        console.log('DEBUG CHAT PAYLOAD:', JSON.stringify(chatPayload, null, 2));
-        console.log('DEBUG - adId:', params.id);
-        console.log('DEBUG - adTitle:', ad.title);
-        console.log('DEBUG - adImage:', ad.images?.[0]);
-        console.log('DEBUG - buyerId:', user.uid);
-        console.log('DEBUG - buyerName:', userProfile.username);
-        console.log('DEBUG - sellerId:', ad.userId);
-        console.log('DEBUG - sellerName:', ad.username);
-        console.log('DEBUG - participants:', [user.uid, ad.userId]);
+        // Only add adImage if it exists (avoid undefined)
+        if (ad.images && ad.images.length > 0 && ad.images[0]) {
+          chatPayload.adImage = ad.images[0];
+        } else {
+          chatPayload.adImage = null;
+        }
         
         const newChat = await addDoc(collection(db, 'chats'), chatPayload);
         
