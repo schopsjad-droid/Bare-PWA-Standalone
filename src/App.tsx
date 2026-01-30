@@ -19,6 +19,7 @@ import Favorites from './pages/Favorites';
 import SellerProfile from './pages/SellerProfile';
 import About from './pages/About';
 import Privacy from './pages/Privacy';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
           <Route path="/chat/:chatId" component={ChatRoom} />
           <Route path="/account-settings" component={AccountSettings} />
           <Route path="/admin/migrate" component={AdminMigrate} />
+          <Route path="/admin" component={AdminDashboard} />
           <Route path="/favorites" component={Favorites} />
           <Route path="/seller/:sellerId" component={SellerProfile} />
           <Route path="/about" component={About} />
