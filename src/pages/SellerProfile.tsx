@@ -87,18 +87,25 @@ export default function SellerProfile() {
       }
 
       // Load seller's ads (only approved ones)
+      // Note: Removed orderBy to avoid Firestore composite index requirement
+      // Sorting is done client-side instead
       const adsRef = collection(db, 'ads');
       const adsQuery = query(
         adsRef,
-        where('userId', '==', sellerId),
-        where('status', '==', 'approved'),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', sellerId)
       );
       const adsSnapshot = await getDocs(adsQuery);
-      const adsData = adsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Ad[];
+      const adsData = adsSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        .filter(ad => ad.status === 'approved' || !ad.status) // Include ads without status for backwards compatibility
+        .sort((a, b) => {
+          const dateA = a.createdAt?.toDate?.() || new Date(0);
+          const dateB = b.createdAt?.toDate?.() || new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        }) as Ad[];
       setAds(adsData);
     } catch (error) {
       console.error('Error loading seller data:', error);
@@ -219,13 +226,33 @@ export default function SellerProfile() {
 
           {/* Add Review Button */}
           {user && user.uid !== sellerId && (
-            <button
-              onClick={() => setShowReviewModal(true)}
-              className="btn btn-primary"
-              style={{ width: '100%' }}
-            >
-              ⭐ أضف تقييم
-            </button>
+            userExistingRating ? (
+              <div
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                <span style={{ color: '#22c55e' }}>✓</span>
+                <span>تم التقييم ({userExistingRating} ⭐)</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowReviewModal(true)}
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+              >
+                ⭐ أضف تقييم
+              </button>
+            )
           )}
         </div>
 
