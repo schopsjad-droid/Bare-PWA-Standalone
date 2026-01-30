@@ -84,9 +84,8 @@ service cloud.firestore {
                     && request.auth.uid == resource.data.userId
                     || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
       
-      // Only the owner can delete their ad
-      allow delete: if isAuthenticated() 
-                    && request.auth.uid == resource.data.userId;
+      // Only the owner OR admin can delete ads
+      allow delete: if request.auth.uid == resource.data.userId || request.auth.token.email == 'schops.jad@gmail.com';
     }
     
     // ========================================
