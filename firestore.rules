@@ -24,18 +24,28 @@ service cloud.firestore {
       allow delete: if request.auth.uid == resource.data.userId || request.auth.token.email == 'schops.jad@gmail.com';
     }
 
-    // Chats Collection (FIXED SECTION)
+    // Chats Collection (FINAL FIX)
     match /chats/{chatId} {
       // Allow creation if auth user is in participants list
       allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
-      // Allow read/update for existing participants
-      allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      
+      // FIXED: Allow read for:
+      // 1. Existing participants (for single doc reads)
+      // 2. List queries where user is buyerId or sellerId (for checking existing chats)
+      allow read: if isAuthenticated() && (
+        request.auth.uid in resource.data.participants ||
+        resource.data.buyerId == request.auth.uid ||
+        resource.data.sellerId == request.auth.uid
+      );
+      
+      // Allow update for existing participants
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
 
       match /messages/{messageId} {
-        // Read: Strict check on parent chat participants (Privacy secured)
+        // Read: Strict check on parent chat participants
         allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
         
-        // Create: Allow if user is sender (Bypasses parent check for first msg race condition)
+        // Create: Allow if user is sender
         allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
         
         // Update: Allow for read-receipts

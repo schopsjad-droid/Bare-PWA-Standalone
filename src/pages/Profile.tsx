@@ -51,39 +51,43 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
       
-      <div className="container py-8">
+      {/* Main container with proper padding */}
+      <div className="w-full px-4 py-8 max-w-6xl mx-auto">
+        {/* Profile Card */}
         <div className="card mb-6">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h1 className="text-3xl font-bold">حسابي</h1>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
+            <h1 className="text-2xl sm:text-3xl font-bold">حسابي</h1>
             <Link href="/account-settings">
-              <a className="btn" style={{ padding: '8px 16px' }}>
+              <a className="btn inline-flex items-center justify-center gap-2 px-4 py-2">
                 ⚙️ الإعدادات
               </a>
             </Link>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center" style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              fontSize: '2rem',
-              fontWeight: 'bold'
-            }}>
+            <div className="flex-shrink-0 flex items-center justify-center"
+              style={{
+                width: '70px',
+                height: '70px',
+                borderRadius: '50%',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                fontSize: '1.75rem',
+                fontWeight: 'bold'
+              }}>
               {user.email?.[0].toUpperCase()}
             </div>
-            <div>
-              <h2 className="text-xl font-semibold">{user.email}</h2>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg sm:text-xl font-semibold truncate">{user.email}</h2>
               <p className="text-gray-600">{ads.length} إعلان منشور</p>
             </div>
           </div>
         </div>
 
-        <h2 className="text-2xl font-bold mb-4">إعلاناتي</h2>
+        {/* My Ads Section */}
+        <h2 className="text-xl sm:text-2xl font-bold mb-4">إعلاناتي</h2>
 
         {loading ? (
           <div className="flex justify-center py-8">
@@ -101,25 +105,22 @@ export default function Profile() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 grid-cols-sm-2 grid-cols-md-3">
+          /* Fixed Grid: 1 column on mobile, 2 on tablet, 3 on desktop */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {ads.map(ad => (
               <Link key={ad.id} href={`/ad/${ad.id}`}>
-                <a className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
+                {/* Card with full width and proper overflow handling */}
+                <a className="card block w-full overflow-hidden hover:shadow-lg transition-shadow"
+                   style={{ textDecoration: 'none', color: 'inherit' }}>
                   {ad.images && ad.images.length > 0 && (
                     <img
                       src={ad.images[0]}
                       alt={ad.title}
-                      style={{
-                        width: '100%',
-                        height: '200px',
-                        objectFit: 'cover',
-                        borderRadius: '0.5rem',
-                        marginBottom: '1rem'
-                      }}
+                      className="w-full h-48 object-cover rounded-lg mb-3"
                     />
                   )}
-                  <h3 className="font-semibold mb-2">{ad.title}</h3>
-                  <span className="text-primary font-bold">{ad.price} ل.س</span>
+                  <h3 className="font-semibold mb-2 truncate">{ad.title}</h3>
+                  <span className="text-primary font-bold">{ad.price.toLocaleString()} ل.س</span>
                 </a>
               </Link>
             ))}
@@ -129,4 +130,3 @@ export default function Profile() {
     </div>
   );
 }
-
