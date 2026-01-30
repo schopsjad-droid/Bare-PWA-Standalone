@@ -133,8 +133,8 @@ export default function AdDetails() {
         const chatId = existingChats.docs[0].id;
         setLocation(`/chat/${chatId}`);
       } else {
-        // Create new chat
-        const newChat = await addDoc(collection(db, 'chats'), {
+        // Create new chat - Build payload first for debugging
+        const chatPayload = {
           adId: params.id,
           adTitle: ad.title,
           adImage: ad.images?.[0] || null,
@@ -145,7 +145,20 @@ export default function AdDetails() {
           participants: [user.uid, ad.userId],
           lastMessage: '',
           lastMessageTime: serverTimestamp()
-        });
+        };
+        
+        // DEBUG: Log payload to check for undefined values
+        console.log('DEBUG CHAT PAYLOAD:', JSON.stringify(chatPayload, null, 2));
+        console.log('DEBUG - adId:', params.id);
+        console.log('DEBUG - adTitle:', ad.title);
+        console.log('DEBUG - adImage:', ad.images?.[0]);
+        console.log('DEBUG - buyerId:', user.uid);
+        console.log('DEBUG - buyerName:', userProfile.username);
+        console.log('DEBUG - sellerId:', ad.userId);
+        console.log('DEBUG - sellerName:', ad.username);
+        console.log('DEBUG - participants:', [user.uid, ad.userId]);
+        
+        const newChat = await addDoc(collection(db, 'chats'), chatPayload);
         
         setLocation(`/chat/${newChat.id}`);
       }
