@@ -118,12 +118,13 @@ export default function AdDetails() {
 
     setStartingChat(true);
     try {
-      // Check if chat already exists
+      // Check if chat already exists using participants array-contains
+      // This query is compatible with Firestore security rules that check participants
       const chatsRef = collection(db, 'chats');
       const q = query(
         chatsRef,
-        where('adId', '==', params.id),
-        where('buyerId', '==', user.uid)
+        where('participants', 'array-contains', user.uid),
+        where('adId', '==', params.id)
       );
       
       const existingChats = await getDocs(q);
@@ -133,11 +134,11 @@ export default function AdDetails() {
         const chatId = existingChats.docs[0].id;
         setLocation(`/chat/${chatId}`);
       } else {
-        // ========== STRICT GUARD CLAUSES ==========
+        // ========== GUARD CLAUSES ==========
         
         // 1. Validate Seller ID
         if (!ad.userId) {
-          console.error("⛔ CRITICAL ERROR: Ad has no userId (sellerId)!", ad);
+          console.error("⛔ ERROR: Ad has no userId (sellerId)!", ad);
           alert("خطأ: لا يمكن التواصل، بيانات البائع غير مكتملة.");
           setStartingChat(false);
           return;
@@ -145,7 +146,7 @@ export default function AdDetails() {
         
         // 2. Validate Current User
         if (!user?.uid) {
-          console.error("⛔ CRITICAL ERROR: User is not logged in properly!");
+          console.error("⛔ ERROR: User is not logged in properly!");
           alert("يرجى تسجيل الدخول أولاً.");
           setStartingChat(false);
           return;
@@ -154,28 +155,18 @@ export default function AdDetails() {
         // 3. Ensure no undefined in participants
         const participants = [user.uid, ad.userId];
         if (participants.includes(undefined as any) || participants.includes(null as any)) {
-          console.error("⛔ CRITICAL ERROR: Participants array contains undefined!", participants);
+          console.error("⛔ ERROR: Participants array contains undefined!", participants);
           alert("خطأ داخلي: فشل تحديد أطراف المحادثة.");
           setStartingChat(false);
           return;
         }
         
-        // 4. Log all values for debugging
-        console.log("✅ GUARD PASSED - Creating chat with:");
-        console.log("  - adId:", params.id);
-        console.log("  - buyerId:", user.uid);
-        console.log("  - sellerId:", ad.userId);
-        console.log("  - participants:", participants);
-        console.log("  - adTitle:", ad.title);
-        console.log("  - buyerName:", userProfile.username);
-        console.log("  - sellerName:", ad.username);
+        // ========== CREATE NEW CHAT ==========
         
-        // ========== SAFE TO WRITE TO FIRESTORE ==========
-        
-        // Create new chat with safe values (no undefined allowed)
-        const chatPayload: Record<string, any> = {
+        const chatPayload = {
           adId: params.id,
           adTitle: ad.title || 'إعلان',
+          adImage: (ad.images && ad.images.length > 0 && ad.images[0]) ? ad.images[0] : null,
           buyerId: user.uid,
           buyerName: userProfile.username || 'مستخدم',
           sellerId: ad.userId,
@@ -183,17 +174,9 @@ export default function AdDetails() {
           participants: participants,
           lastMessage: '',
           lastMessageTime: serverTimestamp(),
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
         };
-        
-        // Only add adImage if it exists (avoid undefined)
-        if (ad.images && ad.images.length > 0 && ad.images[0]) {
-          chatPayload.adImage = ad.images[0];
-        } else {
-          chatPayload.adImage = null;
-        }
-        
-        console.log("📤 Final payload:", JSON.stringify(chatPayload, null, 2));
         
         const newChat = await addDoc(collection(db, 'chats'), chatPayload);
         
@@ -201,7 +184,6 @@ export default function AdDetails() {
       }
     } catch (error: any) {
       console.error('Error starting chat:', error);
-      // إظهار الخطأ الحقيقي للتشخيص
       alert('Error: ' + (error.message || error.toString()));
     } finally {
       setStartingChat(false);
