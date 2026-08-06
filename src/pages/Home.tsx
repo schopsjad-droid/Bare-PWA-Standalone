@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Link, useLocation } from 'wouter';
 import { Helmet } from 'react-helmet-async';
@@ -30,7 +30,6 @@ interface Category {
   id: string;
   name: string;
   icon: string;
-  count?: number;
 }
 
 export default function Home() {
@@ -46,7 +45,6 @@ export default function Home() {
   const [filterCity, setFilterCity] = useState<string>('');
   const categorySheetRef = useRef<HTMLDivElement>(null);
 
-  // Main categories
   const mainCategories: Category[] = [
     { id: 'all', name: 'كل الفئات', icon: '📦' },
     { id: 'vehicles', name: 'السيارات', icon: '🚗' },
@@ -66,18 +64,14 @@ export default function Home() {
     { id: 'neighbors', name: 'مساعدة الجيران', icon: '🤝' },
   ];
 
-  // Fetch category counts and ads from Firestore
   useEffect(() => {
     const fetchData = async () => {
       try {
         const adsRef = collection(db, 'ads');
         const approvedQuery = query(adsRef, where('status', '==', 'approved'));
         const snapshot = await getDocs(approvedQuery);
-
-        // Count by mainCategory
         const counts: Record<string, number> = { all: 0 };
         const allAds: Ad[] = [];
-
         snapshot.docs.forEach(doc => {
           const data = doc.data();
           counts.all++;
@@ -86,16 +80,8 @@ export default function Home() {
           }
           allAds.push({ id: doc.id, ...data } as Ad);
         });
-
         setCategoryCounts(counts);
-
-        // Sort by createdAt descending
-        allAds.sort((a, b) => {
-          const timeA = a.createdAt?.seconds || 0;
-          const timeB = b.createdAt?.seconds || 0;
-          return timeB - timeA;
-        });
-
+        allAds.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         setAds(allAds);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -103,84 +89,49 @@ export default function Home() {
         setLoadingAds(false);
       }
     };
-
     fetchData();
   }, []);
 
-  // Close category sheet on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (categorySheetRef.current && !categorySheetRef.current.contains(e.target as Node)) {
         setShowCategorySheet(false);
       }
     };
-    if (showCategorySheet) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    if (showCategorySheet) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCategorySheet]);
 
-  // Filter and sort ads
   const getFilteredAds = () => {
     let filtered = [...ads];
-
-    // Category filter
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(ad => ad.mainCategory === selectedCategory);
-    }
-
-    // Search filter
+    if (selectedCategory !== 'all') filtered = filtered.filter(ad => ad.mainCategory === selectedCategory);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(ad =>
-        ad.title?.toLowerCase().includes(q) ||
-        ad.description?.toLowerCase().includes(q)
-      );
+      filtered = filtered.filter(ad => ad.title?.toLowerCase().includes(q) || ad.description?.toLowerCase().includes(q));
     }
-
-    // City filter
-    if (filterCity.trim()) {
-      filtered = filtered.filter(ad =>
-        ad.city?.toLowerCase().includes(filterCity.toLowerCase())
-      );
-    }
-
-    // Sort
-    if (sortBy === 'price-asc') {
-      filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
-    } else if (sortBy === 'price-desc') {
-      filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
-    } else {
-      // newest first (default)
-      filtered.sort((a, b) => {
-        const timeA = a.createdAt?.seconds || 0;
-        const timeB = b.createdAt?.seconds || 0;
-        return timeB - timeA;
-      });
-    }
-
+    if (filterCity.trim()) filtered = filtered.filter(ad => ad.city?.toLowerCase().includes(filterCity.toLowerCase()));
+    if (sortBy === 'price-asc') filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+    else if (sortBy === 'price-desc') filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+    else filtered.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     return filtered;
   };
 
   const filteredAds = getFilteredAds();
 
-  // Format price
   const formatPrice = (price: number, priceType: string) => {
     if (priceType === 'free') return 'مجاناً';
-    if (priceType === 'negotiable') return `${price.toLocaleString('ar-SA')} ل.س (قابل للتفاوض)`;
+    if (priceType === 'negotiable') return `${price.toLocaleString('ar-SA')} ل.س`;
     if (priceType === 'monthly') return `${price.toLocaleString('ar-SA')} ل.س / شهرياً`;
     return `${price.toLocaleString('ar-SA')} ل.س`;
   };
 
-  // Format relative time
   const formatTime = (createdAt: any) => {
     if (!createdAt?.seconds) return '';
-    const now = Date.now() / 1000;
-    const diff = now - createdAt.seconds;
-    if (diff < 3600) return `قبل ${Math.floor(diff / 60)} دقيقة`;
-    if (diff < 86400) return `قبل ${Math.floor(diff / 3600)} ساعة`;
-    if (diff < 604800) return `قبل ${Math.floor(diff / 86400)} يوم`;
-    return `قبل ${Math.floor(diff / 604800)} أسبوع`;
+    const diff = Date.now() / 1000 - createdAt.seconds;
+    if (diff < 3600) return `قبل ${Math.floor(diff / 60)} د`;
+    if (diff < 86400) return `قبل ${Math.floor(diff / 3600)} س`;
+    if (diff < 604800) return `قبل ${Math.floor(diff / 86400)} ي`;
+    return `قبل ${Math.floor(diff / 604800)} أ`;
   };
 
   const handleCategorySelect = (catId: string) => {
@@ -190,227 +141,169 @@ export default function Home() {
 
   const selectedCategoryName = mainCategories.find(c => c.id === selectedCategory)?.name || 'كل الفئات';
 
+  const ProfileIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
+  );
+
   return (
-    <div className="home-page">
+    <div className="hp">
       <Helmet>
         <title>Bare - بيع وشراء في سوريا</title>
-        <meta name="description" content="منصة للإعلانات المبوبة. اشترِ وبِع سيارات، عقارات، إلكترونيات وأكثر بسهولة وأمان." />
+        <meta name="description" content="منصة للإعلانات المبوبة. اشترِ وبِع سيارات، عقارات، إلكترونيات وأكثر." />
       </Helmet>
 
       {/* Header */}
-      <header className="home-header">
-        <div className="home-header-content">
-          <Link href="/">
-            <a className="home-logo">Bare</a>
-          </Link>
-          
-          <div className="home-header-actions">
-            {!user ? (
-              <Link href="/login">
-                <a className="home-login-btn">تسجيل الدخول</a>
-              </Link>
-            ) : (
-              <Link href="/profile">
-                <a className="home-profile-btn">
-                  <span>👤</span>
-                </a>
-              </Link>
-            )}
-          </div>
+      <header className="hp-header">
+        <Link href="/"><span className="hp-logo">Bare</span></Link>
+        <div className="hp-header-action">
+          {!user ? (
+            <Link href="/login"><span className="hp-login-btn">تسجيل الدخول</span></Link>
+          ) : (
+            <Link href="/profile"><span className="hp-profile-btn"><ProfileIcon /></span></Link>
+          )}
         </div>
       </header>
 
-      {/* Search Bar */}
-      <div className="home-search-section">
-        <div className="home-search-wrapper">
-          <span className="home-search-icon">🔍</span>
-          <input
-            type="text"
-            className="home-search-input"
-            placeholder="ابحث عن أي شيء..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      {/* Search */}
+      <div className="hp-search">
+        <svg className="hp-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          type="text"
+          className="hp-search-input"
+          placeholder="ابحث عن أي شيء..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
-      {/* Category Selector */}
-      <div className="home-category-selector">
-        <button
-          className="home-category-btn"
-          onClick={() => setShowCategorySheet(!showCategorySheet)}
-        >
-          <span className="home-category-btn-icon">☰</span>
-          <span className="home-category-btn-text">{selectedCategoryName}</span>
-          <span className="home-category-btn-arrow">▾</span>
+      {/* Category Selector - full width on mobile */}
+      <div className="hp-cat-row">
+        <button className="hp-cat-btn" onClick={() => setShowCategorySheet(!showCategorySheet)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          <span>{selectedCategoryName}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
       </div>
 
-      {/* Category Sheet/Dropdown */}
+      {/* Category Bottom Sheet */}
       {showCategorySheet && (
         <>
-          {/* Backdrop for mobile */}
-          <div className="home-category-backdrop" onClick={() => setShowCategorySheet(false)} />
-          <div className="home-category-sheet" ref={categorySheetRef}>
-            <div className="home-category-sheet-header">
+          <div className="hp-overlay" onClick={() => setShowCategorySheet(false)} />
+          <div className="hp-sheet" ref={categorySheetRef}>
+            <div className="hp-sheet-handle" />
+            <div className="hp-sheet-header">
               <h3>اختر الفئة</h3>
-              <button onClick={() => setShowCategorySheet(false)} className="home-category-sheet-close">✕</button>
+              <button onClick={() => setShowCategorySheet(false)} className="hp-sheet-close">✕</button>
             </div>
-            <div className="home-category-sheet-list">
+            <div className="hp-sheet-list">
               {mainCategories.map(cat => (
                 <button
                   key={cat.id}
-                  className={`home-category-sheet-item ${selectedCategory === cat.id ? 'active' : ''}`}
+                  className={`hp-sheet-item${selectedCategory === cat.id ? ' active' : ''}`}
                   onClick={() => handleCategorySelect(cat.id)}
                 >
-                  <span className="home-category-sheet-item-icon">{cat.icon}</span>
-                  <span className="home-category-sheet-item-name">{cat.name}</span>
-                  <span className="home-category-sheet-item-count">{categoryCounts[cat.id] || 0}</span>
+                  <span className="hp-sheet-item-icon">{cat.icon}</span>
+                  <span className="hp-sheet-item-name">{cat.name}</span>
+                  <span className="hp-sheet-item-count">{categoryCounts[cat.id] || 0}</span>
                 </button>
               ))}
-            </div>
-            <div className="home-category-sheet-footer">
-              <small>الأعداد تأتي من Firestore (Live)</small>
             </div>
           </div>
         </>
       )}
 
       {/* Filter Bar */}
-      <div className="home-filter-bar">
-        <div className="home-filter-chip">
-          <span>💰</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="home-filter-select"
-          >
+      <div className="hp-filters">
+        <div className="hp-filter-chip">
+          <span>السعر</span>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="hp-filter-sel">
             <option value="newest">الأحدث</option>
-            <option value="price-asc">السعر: الأقل</option>
-            <option value="price-desc">السعر: الأعلى</option>
+            <option value="price-asc">الأقل</option>
+            <option value="price-desc">الأعلى</option>
           </select>
         </div>
-
-        <div className="home-filter-chip">
-          <span>📍</span>
-          <input
-            type="text"
-            placeholder="الموقع"
-            value={filterCity}
-            onChange={(e) => setFilterCity(e.target.value)}
-            className="home-filter-input"
-          />
+        <div className="hp-filter-chip">
+          <span>الموقع</span>
+          <input type="text" placeholder="المدينة" value={filterCity} onChange={(e) => setFilterCity(e.target.value)} className="hp-filter-inp" />
         </div>
-
-        <div className="home-filter-chip">
-          <span>↕️</span>
-          <span className="home-filter-label">الفرز</span>
+        <div className="hp-filter-chip">
+          <span>الفرز</span>
         </div>
       </div>
 
-      {/* Listings Section */}
-      <div className="home-listings-section">
-        <div className="home-listings-header">
-          <h2 className="home-listings-title">أحدث الإعلانات</h2>
-          <Link href="/category/all">
-            <a className="home-listings-viewall">عرض الكل ‹</a>
-          </Link>
+      {/* Listings */}
+      <div className="hp-listings">
+        <div className="hp-listings-head">
+          <h2>أحدث الإعلانات</h2>
+          <Link href="/category/all"><span className="hp-viewall">عرض الكل ‹</span></Link>
         </div>
 
         {loadingAds ? (
-          <div className="home-listings-loading">
-            {/* Skeleton cards */}
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="home-listing-skeleton">
-                <div className="home-listing-skeleton-image" />
-                <div className="home-listing-skeleton-content">
-                  <div className="home-listing-skeleton-title" />
-                  <div className="home-listing-skeleton-price" />
-                  <div className="home-listing-skeleton-meta" />
+          <div className="hp-skeletons">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="hp-skel">
+                <div className="hp-skel-img" />
+                <div className="hp-skel-body">
+                  <div className="hp-skel-line w70" />
+                  <div className="hp-skel-line w40" />
+                  <div className="hp-skel-line w60" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredAds.length === 0 ? (
-          <div className="home-listings-empty">
-            <span className="home-listings-empty-icon">📦</span>
+          <div className="hp-empty">
             <p>لا توجد إعلانات{selectedCategory !== 'all' ? ' في هذه الفئة' : ''}</p>
           </div>
         ) : (
-          <div className="home-listings-grid">
-            {filteredAds.slice(0, 12).map(ad => (
-              <div key={ad.id} className="home-listing-card-wrapper">
-                <Link href={`/ad/${ad.id}`}>
-                  <a className="home-listing-card">
-                    {/* Image */}
-                    <div className="home-listing-image-container">
-                      {ad.images && ad.images.length > 0 ? (
-                        <img
-                          src={ad.images[0]}
-                          alt={ad.title}
-                          className="home-listing-image"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '';
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <div className="home-listing-image-placeholder">📷</div>
-                      )}
-                      
-                      {/* Featured badge */}
-                      {ad.isFeatured && (
-                        <span className="home-listing-badge">مميز</span>
-                      )}
-                    </div>
+          <div className="hp-cards">
+            {filteredAds.slice(0, 12).map(ad => {
+              const hasImage = ad.images && ad.images.length > 0 && ad.images[0];
+              return (
+                <div key={ad.id} className="hp-card-wrap">
+                  <Link href={`/ad/${ad.id}`}>
+                    <span className="hp-card">
+                      {/* Image - left side on mobile */}
+                      <div className="hp-card-img">
+                        {hasImage ? (
+                          <img src={ad.images[0]} alt="" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        ) : (
+                          <div className="hp-card-placeholder">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                          </div>
+                        )}
+                        {ad.isFeatured && <span className="hp-card-badge">مميز</span>}
+                      </div>
 
-                    {/* Content */}
-                    <div className="home-listing-content">
-                      <h3 className="home-listing-title">{ad.title || 'إعلان بدون عنوان'}</h3>
-                      <div className="home-listing-price">
-                        {formatPrice(ad.price || 0, ad.priceType || 'fixed')}
+                      {/* Content - right side on mobile */}
+                      <div className="hp-card-body">
+                        <h3 className="hp-card-title">{ad.title || 'إعلان'}</h3>
+                        <div className="hp-card-price">{formatPrice(ad.price || 0, ad.priceType || 'fixed')}</div>
+                        <div className="hp-card-meta">
+                          {ad.city && <span>📍 {ad.city}</span>}
+                          {ad.createdAt && <span>⏱ {formatTime(ad.createdAt)}</span>}
+                        </div>
+                        <div className="hp-card-extra">
+                          {ad.attributes?.condition && <span className="hp-card-cond">{ad.attributes.condition}</span>}
+                          {ad.username && <span className="hp-card-seller">{ad.username}</span>}
+                          {ad.views > 0 && <span className="hp-card-views">👁 {ad.views}</span>}
+                        </div>
                       </div>
-                      <div className="home-listing-meta">
-                        <span className="home-listing-meta-item">
-                          <span>📍</span> {ad.city || 'غير محدد'}
-                        </span>
-                        {ad.createdAt && (
-                          <span className="home-listing-meta-item">
-                            <span>⏱</span> {formatTime(ad.createdAt)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="home-listing-footer">
-                        {ad.attributes?.condition && (
-                          <span className="home-listing-condition">{ad.attributes.condition}</span>
-                        )}
-                        {ad.username && (
-                          <span className="home-listing-seller">
-                            <span>👤</span> {ad.username}
-                          </span>
-                        )}
-                        {ad.views > 0 && (
-                          <span className="home-listing-views">
-                            <span>👁️</span> {ad.views}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </a>
-                </Link>
-
-                {/* Favorite Button */}
-                <div className="home-listing-favorite">
-                  <FavoriteButton adId={ad.id} size="medium" />
+                    </span>
+                  </Link>
+                  <div className="hp-card-fav">
+                    <FavoriteButton adId={ad.id} size="small" />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Bottom Navigation */}
       <MobileBottomNav />
     </div>
   );
