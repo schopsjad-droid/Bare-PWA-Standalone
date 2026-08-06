@@ -1,444 +1,261 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useLocation } from 'wouter';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { db } from '../config/firebase';
+/**
+ * /map — Location & Radius Selector
+ * Purpose: Let the user pick a search center and radius, then return to results.
+ * This page does NOT display advertisements.
+ */
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { Link, useLocation, useSearch } from 'wouter';
 import MobileBottomNav from '../components/MobileBottomNav';
-import MapFallback from '../components/MapFallback';
-import StatusBadge from '../components/StatusBadge';
-import FavoriteButton from '../components/FavoriteButton';
-import { SYRIA_CENTER, DEFAULT_ZOOM, OPENFREEMAP_STYLE, formatDistance, calculateDistance, getGeohashBounds } from '../utils/geo';
-import { formatPrice, type PriceType } from '../constants/categories';
+import { MAP_CONFIG, RADIUS_QUICK_OPTIONS } from '../config/maps';
+import { searchLocations, reverseGeocode, isMapProviderAvailable, type LocationSuggestion } from '../services/locationProvider';
 
-interface MapAd {
-  id: string;
-  title: string;
-  price: number;
-  priceType?: PriceType;
-  city: string;
-  images: string[];
-  latitude: number;
-  longitude: number;
-  listingStatus?: string;
-  createdAt: any;
-}
-
-type MapState = 'loading' | 'ready' | 'unsupported' | 'error';
+// Lazy-load the map component
+const LeafletMap = lazy(() => import('../components/LeafletLocationMap'));
 
 export default function MapResults() {
   const [, setLocation] = useLocation();
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const initAttemptRef = useRef(0);
-  const [mapState, setMapState] = useState<MapState>('loading');
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [ads, setAds] = useState<MapAd[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedAd, setSelectedAd] = useState<MapAd | null>(null);
-  const [showSearchButton, setShowSearchButton] = useState(false);
-  const [searchCenter, setSearchCenter] = useState<[number, number] | null>(null);
-  const [searchRadius, setSearchRadius] = useState(50);
-  const [searching, setSearching] = useState(false);
+  const search = useSearch();
+  const params = new URLSearchParams(search);
 
-  // Load initial ads with coordinates
-  useEffect(() => {
-    loadAdsWithLocation();
+  // Parse existing filter from URL
+  const initialLat = params.get('lat') ? parseFloat(params.get('lat')!) : null;
+  const initialLng = params.get('lng') ? parseFloat(params.get('lng')!) : null;
+  const initialRadius = params.get('radius') ? parseInt(params.get('radius')!) : MAP_CONFIG.defaultRadius;
+  const initialLabel = params.get('label') || '';
+  const returnQuery = params.get('q') || '';
+  const returnCategory = params.get('cat') || '';
+
+  const [centerLat, setCenterLat] = useState<number | null>(initialLat);
+  const [centerLng, setCenterLng] = useState<number | null>(initialLng);
+  const [radius, setRadius] = useState(initialRadius);
+  const [locationLabel, setLocationLabel] = useState(initialLabel);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [mapError, setMapError] = useState(false);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Autocomplete with debounce
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (value.trim().length < MAP_CONFIG.autocompleteMinChars) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      const results = await searchLocations(value);
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    }, MAP_CONFIG.autocompleteDebounceMs);
   }, []);
 
-  const loadAdsWithLocation = async () => {
-    try {
-      setLoading(true);
-      const adsRef = collection(db, 'ads');
-      const q = query(adsRef, where('status', '==', 'approved'), orderBy('createdAt', 'desc'), limit(200));
-      const snapshot = await getDocs(q);
-      const results: MapAd[] = [];
-      snapshot.docs.forEach(doc => {
-        const d = doc.data();
-        if (d.latitude && d.longitude) {
-          results.push({
-            id: doc.id,
-            title: d.title || '',
-            price: d.price || 0,
-            priceType: d.priceType,
-            city: d.city || '',
-            images: d.images || [],
-            latitude: d.latitude,
-            longitude: d.longitude,
-            listingStatus: d.listingStatus || 'available',
-            createdAt: d.createdAt
-          });
-        }
-      });
-      setAds(results);
-    } catch (e) {
-      console.error('[MapResults] Error loading ads:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Search this area using geofire-common
-  const handleSearchThisArea = useCallback(async () => {
-    if (!mapRef.current) return;
-    setSearching(true);
-    setShowSearchButton(false);
-
-    const center = mapRef.current.getCenter();
-    const bounds = mapRef.current.getBounds();
-    const ne = bounds.getNorthEast();
-    const radiusKm = Math.min(
-      calculateDistance([center.lat, center.lng], [ne.lat, ne.lng]),
-      100
-    );
-
-    setSearchCenter([center.lat, center.lng]);
-    setSearchRadius(radiusKm);
-
-    try {
-      const geoBounds = getGeohashBounds([center.lat, center.lng], radiusKm);
-      const allResults: MapAd[] = [];
-      const seenIds = new Set<string>();
-
-      for (const b of geoBounds) {
-        const q = query(
-          collection(db, 'ads'),
-          where('status', '==', 'approved'),
-          where('geohash', '>=', b[0]),
-          where('geohash', '<=', b[1]),
-          limit(100)
-        );
-        const snapshot = await getDocs(q);
-        snapshot.docs.forEach(doc => {
-          if (seenIds.has(doc.id)) return;
-          seenIds.add(doc.id);
-          const d = doc.data();
-          if (d.latitude && d.longitude) {
-            const dist = calculateDistance([center.lat, center.lng], [d.latitude, d.longitude]);
-            if (dist <= radiusKm) {
-              allResults.push({
-                id: doc.id,
-                title: d.title || '',
-                price: d.price || 0,
-                priceType: d.priceType,
-                city: d.city || '',
-                images: d.images || [],
-                latitude: d.latitude,
-                longitude: d.longitude,
-                listingStatus: d.listingStatus || 'available',
-                createdAt: d.createdAt
-              });
-            }
-          }
-        });
-      }
-      setAds(allResults);
-    } catch (e) {
-      console.error('[MapResults] Search error:', e);
-    } finally {
-      setSearching(false);
-    }
+  // Select a suggestion
+  const handleSelectSuggestion = useCallback((suggestion: LocationSuggestion) => {
+    setCenterLat(suggestion.latitude);
+    setCenterLng(suggestion.longitude);
+    setLocationLabel(suggestion.label);
+    setSearchQuery(suggestion.label);
+    setSuggestions([]);
+    setShowSuggestions(false);
   }, []);
 
-  // Initialize map with proper lifecycle management
-  const initializeMap = useCallback(async () => {
-    initAttemptRef.current += 1;
-    const currentAttempt = initAttemptRef.current;
-
-    // Clean up any existing map instance
-    if (mapRef.current) {
-      try { mapRef.current.remove(); } catch (_) {}
-      mapRef.current = null;
+  // Use current location
+  const handleUseMyLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      alert('تحديد الموقع غير مدعوم في هذا المتصفح');
+      return;
     }
-    setMapLoaded(false);
-    setMapState('loading');
-
-    try {
-      // Step 1: Dynamically import MapLibre
-      const maplibregl = await import('maplibre-gl');
-
-      // Step 2: Check if MapLibre reports WebGL as supported
-      // Use MapLibre's own detection which is more reliable than manual canvas test
-      const MapLib = maplibregl.default || maplibregl;
-      if (typeof MapLib.supported === 'function' && !MapLib.supported()) {
-        console.warn('[MapResults] MapLibre reports WebGL not supported');
-        setMapState('unsupported');
-        return;
-      }
-
-      // Step 3: Import CSS
-      await import('maplibre-gl/dist/maplibre-gl.css');
-
-      // Step 4: Verify container is ready with non-zero dimensions
-      if (currentAttempt !== initAttemptRef.current) return; // stale attempt
-      const container = mapContainerRef.current;
-      if (!container) {
-        console.warn('[MapResults] Map container not available');
-        setMapState('error');
-        return;
-      }
-
-      // Wait for container to have dimensions (may need a frame)
-      if (container.clientWidth === 0 || container.clientHeight === 0) {
-        await new Promise(resolve => requestAnimationFrame(resolve));
-        if (currentAttempt !== initAttemptRef.current) return;
-        // If still zero, force a minimum height
-        if (container.clientWidth === 0 || container.clientHeight === 0) {
-          container.style.minHeight = '400px';
-          await new Promise(resolve => requestAnimationFrame(resolve));
-          if (currentAttempt !== initAttemptRef.current) return;
-        }
-      }
-
-      // Step 5: Create the map
-      const map = new MapLib.Map({
-        container: container,
-        style: OPENFREEMAP_STYLE,
-        center: [SYRIA_CENTER[1], SYRIA_CENTER[0]], // [lng, lat]
-        zoom: DEFAULT_ZOOM,
-        attributionControl: false,
-        failIfMajorPerformanceCaveat: false // Allow software rendering
-      });
-
-      const NavControl = MapLib.NavigationControl || maplibregl.NavigationControl;
-      const AttrControl = MapLib.AttributionControl || maplibregl.AttributionControl;
-
-      if (AttrControl) map.addControl(new AttrControl({ compact: true }), 'bottom-left');
-      if (NavControl) map.addControl(new NavControl(), 'top-left');
-
-      // Handle map errors (style load failure, WebGL context lost, etc.)
-      map.on('error', (e: any) => {
-        console.error('[MapResults] Map runtime error:', e.error?.message || e.message || e);
-      });
-
-      // Show search button on map move
-      map.on('moveend', () => {
-        setShowSearchButton(true);
-      });
-
-      map.on('load', () => {
-        if (currentAttempt !== initAttemptRef.current) return;
-        setMapLoaded(true);
-        setMapState('ready');
-        mapRef.current = map;
-        // Ensure map fills container correctly
-        map.resize();
-      });
-
-      // Timeout: if map doesn't load within 15 seconds, show error
-      setTimeout(() => {
-        if (currentAttempt === initAttemptRef.current && !mapRef.current) {
-          console.warn('[MapResults] Map load timeout');
-          setMapState('error');
-        }
-      }, 15000);
-
-    } catch (e: any) {
-      if (currentAttempt !== initAttemptRef.current) return;
-      console.error('[MapResults] Map initialization error:', e);
-
-      // Distinguish between WebGL unsupported and other errors
-      const msg = (e?.message || '').toLowerCase();
-      if (msg.includes('webgl') && (msg.includes('not supported') || msg.includes('unsupported'))) {
-        setMapState('unsupported');
-      } else {
-        setMapState('error');
-      }
-    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setCenterLat(latitude);
+        setCenterLng(longitude);
+        // Reverse geocode for label
+        const label = await reverseGeocode(latitude, longitude);
+        setLocationLabel(label || 'موقعي الحالي');
+        setSearchQuery(label || 'موقعي الحالي');
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        if (err.code === 1) alert('تم رفض إذن الموقع. يمكنك تحديد الموقع يدوياً.');
+        else if (err.code === 2) alert('تعذر تحديد الموقع. يرجى المحاولة لاحقاً.');
+        else alert('انتهت مهلة تحديد الموقع. يرجى المحاولة مرة أخرى.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
   }, []);
 
-  // Initialize map on mount
-  useEffect(() => {
-    initializeMap();
-    return () => {
-      initAttemptRef.current += 1; // Invalidate any pending init
-      if (mapRef.current) {
-        try { mapRef.current.remove(); } catch (_) {}
-        mapRef.current = null;
-      }
-    };
-  }, [initializeMap]);
+  // Handle map center change (from pin drag or map click)
+  const handleMapCenterChange = useCallback((lat: number, lng: number) => {
+    setCenterLat(lat);
+    setCenterLng(lng);
+    // Don't reverse geocode on every drag — only label when user confirms or uses current location
+  }, []);
 
-  // Update map markers when ads change
-  useEffect(() => {
-    if (!mapLoaded || !mapRef.current || ads.length === 0) return;
-    const map = mapRef.current;
+  // Confirm and return to results
+  const handleConfirm = useCallback(() => {
+    if (centerLat === null || centerLng === null) return;
 
-    // Remove existing source/layers if they exist
-    if (map.getSource('ads-source')) {
-      if (map.getLayer('clusters')) map.removeLayer('clusters');
-      if (map.getLayer('cluster-count')) map.removeLayer('cluster-count');
-      if (map.getLayer('unclustered-point')) map.removeLayer('unclustered-point');
-      map.removeSource('ads-source');
-    }
+    const resultParams = new URLSearchParams();
+    resultParams.set('lat', centerLat.toFixed(5));
+    resultParams.set('lng', centerLng.toFixed(5));
+    resultParams.set('radius', String(radius));
+    if (locationLabel) resultParams.set('label', locationLabel);
+    if (returnQuery) resultParams.set('q', returnQuery);
+    if (returnCategory) resultParams.set('cat', returnCategory);
 
-    // Build GeoJSON
-    const geojson = {
-      type: 'FeatureCollection' as const,
-      features: ads.filter(ad => ad.listingStatus !== 'sold').map(ad => ({
-        type: 'Feature' as const,
-        geometry: {
-          type: 'Point' as const,
-          coordinates: [ad.longitude, ad.latitude]
-        },
-        properties: {
-          id: ad.id,
-          title: ad.title,
-          price: ad.price,
-          priceType: ad.priceType || 'fixed',
-          city: ad.city,
-          image: ad.images?.[0] || '',
-          listingStatus: ad.listingStatus || 'available'
-        }
-      }))
-    };
+    setLocation(`/category/${returnCategory || 'all'}?${resultParams.toString()}`);
+  }, [centerLat, centerLng, radius, locationLabel, returnQuery, returnCategory, setLocation]);
 
-    map.addSource('ads-source', {
-      type: 'geojson',
-      data: geojson,
-      cluster: true,
-      clusterMaxZoom: 14,
-      clusterRadius: 50
-    });
+  // Reset filter
+  const handleReset = useCallback(() => {
+    setCenterLat(null);
+    setCenterLng(null);
+    setRadius(MAP_CONFIG.defaultRadius);
+    setLocationLabel('');
+    setSearchQuery('');
+  }, []);
 
-    map.addLayer({
-      id: 'clusters',
-      type: 'circle',
-      source: 'ads-source',
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': ['step', ['get', 'point_count'], '#4ade80', 10, '#22c55e', 30, '#16a34a'],
-        'circle-radius': ['step', ['get', 'point_count'], 18, 10, 24, 30, 30],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': 'rgba(255,255,255,0.3)'
-      }
-    });
+  // Clear search input
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSuggestions([]);
+    setShowSuggestions(false);
+    searchInputRef.current?.focus();
+  }, []);
 
-    map.addLayer({
-      id: 'cluster-count',
-      type: 'symbol',
-      source: 'ads-source',
-      filter: ['has', 'point_count'],
-      layout: { 'text-field': '{point_count_abbreviated}', 'text-font': ['Open Sans Bold'], 'text-size': 12 },
-      paint: { 'text-color': '#ffffff' }
-    });
-
-    map.addLayer({
-      id: 'unclustered-point',
-      type: 'circle',
-      source: 'ads-source',
-      filter: ['!', ['has', 'point_count']],
-      paint: { 'circle-color': '#4ade80', 'circle-radius': 8, 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' }
-    });
-
-    map.on('click', 'clusters', (e: any) => {
-      const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
-      const clusterId = features[0].properties.cluster_id;
-      (map.getSource('ads-source') as any).getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
-        if (err) return;
-        map.easeTo({ center: features[0].geometry.coordinates, zoom });
-      });
-    });
-
-    map.on('click', 'unclustered-point', (e: any) => {
-      const props = e.features[0].properties;
-      const ad = ads.find(a => a.id === props.id);
-      if (ad) setSelectedAd(ad);
-    });
-
-    map.on('mouseenter', 'clusters', () => { map.getCanvas().style.cursor = 'pointer'; });
-    map.on('mouseleave', 'clusters', () => { map.getCanvas().style.cursor = ''; });
-    map.on('mouseenter', 'unclustered-point', () => { map.getCanvas().style.cursor = 'pointer'; });
-    map.on('mouseleave', 'unclustered-point', () => { map.getCanvas().style.cursor = ''; });
-
-    map.on('click', (e: any) => {
-      const features = map.queryRenderedFeatures(e.point, { layers: ['unclustered-point', 'clusters'] });
-      if (features.length === 0) setSelectedAd(null);
-    });
-
-  }, [mapLoaded, ads]);
-
-  // Render fallback states
-  if (mapState === 'unsupported') {
-    return (
-      <div className="page-wrap">
-        <header className="page-header">
-          <Link href="/"><span className="page-header-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg></span></Link>
-          <h1 className="page-header-title">الخريطة</h1>
-          <div className="page-header-spacer" />
-        </header>
-        <div className="page-content"><MapFallback type="unsupported" /></div>
-        <MobileBottomNav />
-      </div>
-    );
-  }
-
-  if (mapState === 'error') {
-    return (
-      <div className="page-wrap">
-        <header className="page-header">
-          <Link href="/"><span className="page-header-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg></span></Link>
-          <h1 className="page-header-title">الخريطة</h1>
-          <div className="page-header-spacer" />
-        </header>
-        <div className="page-content"><MapFallback type="error" onRetry={initializeMap} /></div>
-        <MobileBottomNav />
-      </div>
-    );
-  }
+  const hasSelection = centerLat !== null && centerLng !== null;
 
   return (
-    <div className="page-wrap map-results-page">
-      <header className="page-header map-results-header">
-        <Link href="/"><span className="page-header-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg></span></Link>
-        <h1 className="page-header-title">الخريطة</h1>
-        <span className="map-results-count">{ads.filter(a => a.listingStatus !== 'sold').length} إعلان</span>
+    <div className="page-wrap location-filter-page">
+      {/* Header */}
+      <header className="page-header">
+        <Link href="/"><span className="page-header-back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </span></Link>
+        <h1 className="page-header-title">الموقع والمسافة</h1>
+        {hasSelection && (
+          <button className="page-header-action" onClick={handleReset}>مسح</button>
+        )}
+        {!hasSelection && <div className="page-header-spacer" />}
       </header>
 
-      <div className="map-results-container">
-        <div ref={mapContainerRef} className="map-results-map" />
-
-        {(loading || searching || mapState === 'loading') && (
-          <div className="map-results-loading">
-            <div className="spinner" />
-          </div>
-        )}
-
-        {showSearchButton && !searching && mapState === 'ready' && (
-          <button className="map-search-area-btn" onClick={handleSearchThisArea}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            البحث في هذه المنطقة
-          </button>
-        )}
-
-        {selectedAd && (
-          <div className="map-preview-card" onClick={() => setLocation(`/ad/${selectedAd.id}`)}>
-            <div className="map-preview-img">
-              {selectedAd.images?.[0] ? (
-                <img src={selectedAd.images[0]} alt="" loading="lazy" />
-              ) : (
-                <div className="map-preview-placeholder">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                </div>
-              )}
-            </div>
-            <div className="map-preview-body">
-              <div className="map-preview-title-row">
-                <h4 className="map-preview-title">{selectedAd.title}</h4>
-                <StatusBadge listingStatus={selectedAd.listingStatus || 'available'} size="sm" />
-              </div>
-              <div className="map-preview-price">{formatPrice({ amount: selectedAd.price, type: selectedAd.priceType || 'fixed' })}</div>
-              <div className="map-preview-meta">
-                <span>{selectedAd.city}</span>
-                {searchCenter && (
-                  <span>{formatDistance(calculateDistance(searchCenter, [selectedAd.latitude, selectedAd.longitude]))}</span>
-                )}
-              </div>
-            </div>
-            <button className="map-preview-close" onClick={(e) => { e.stopPropagation(); setSelectedAd(null); }}>
+      {/* Search Section */}
+      <div className="location-search-section">
+        <div className="location-search-input-wrap">
+          <svg className="location-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="location-search-input"
+            placeholder="ابحث عن مدينة أو منطقة..."
+            value={searchQuery}
+            onChange={(e) => handleSearchInput(e.target.value)}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+          />
+          {searchQuery && (
+            <button className="location-search-clear" onClick={handleClearSearch}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
-            <div className="map-preview-fav"><FavoriteButton adId={selectedAd.id} size="small" /></div>
+          )}
+        </div>
+
+        {/* Suggestions dropdown */}
+        {showSuggestions && (
+          <div className="location-suggestions">
+            {suggestions.map((s) => (
+              <button key={s.id} className="location-suggestion-item" onClick={() => handleSelectSuggestion(s)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span>{s.label}</span>
+              </button>
+            ))}
           </div>
         )}
+
+        {/* Current location button */}
+        <button className="location-use-current" onClick={handleUseMyLocation} disabled={locating}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg>
+          {locating ? 'جاري التحديد...' : 'استخدام موقعي الحالي'}
+        </button>
+
+        {/* Location label */}
+        {hasSelection && locationLabel && (
+          <div className="location-selected-label">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--bare-green)" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>{locationLabel}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Map */}
+      <div className="location-map-container">
+        {isMapProviderAvailable() ? (
+          <Suspense fallback={<div className="location-map-loading"><div className="spinner" /></div>}>
+            <LeafletMap
+              center={hasSelection ? [centerLat!, centerLng!] : MAP_CONFIG.defaultCenter}
+              radius={radius}
+              onCenterChange={handleMapCenterChange}
+              onError={() => setMapError(true)}
+            />
+          </Suspense>
+        ) : (
+          <div className="location-map-fallback">
+            <p>تعذر تحميل الخريطة مؤقتاً. يمكنك اختيار المحافظة والمدينة يدوياً.</p>
+          </div>
+        )}
+        {mapError && (
+          <div className="location-map-fallback">
+            <p>تعذر تحميل الخريطة مؤقتاً. يمكنك اختيار المحافظة والمدينة يدوياً.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Radius Section */}
+      <div className="location-radius-section">
+        <div className="location-radius-header">
+          <span className="location-radius-label">نطاق البحث</span>
+          <span className="location-radius-value">{radius} كم</span>
+        </div>
+        <input
+          type="range"
+          className="location-radius-slider"
+          min={MAP_CONFIG.minRadius}
+          max={MAP_CONFIG.maxRadius}
+          step={1}
+          value={radius}
+          onChange={(e) => setRadius(parseInt(e.target.value))}
+        />
+        <div className="location-radius-quick">
+          {RADIUS_QUICK_OPTIONS.map((r) => (
+            <button
+              key={r}
+              className={`location-radius-chip${radius === r ? ' active' : ''}`}
+              onClick={() => setRadius(r)}
+            >
+              {r} كم
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Confirm Button */}
+      <div className="location-confirm-section">
+        <button
+          className="btn btn-primary btn-full location-confirm-btn"
+          disabled={!hasSelection}
+          onClick={handleConfirm}
+        >
+          عرض النتائج
+        </button>
       </div>
 
       <MobileBottomNav />
