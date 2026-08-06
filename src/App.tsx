@@ -23,6 +23,7 @@ import Privacy from './pages/Privacy';
 import AdminDashboard from './pages/AdminDashboard';
 import Settings from './pages/Settings';
 import NotificationSettings from './pages/NotificationSettings';
+import MapResults from './pages/MapResults';
 
 function NotificationLayer() {
   const { latestNotification, dismissNotification } = useUnreadMessages();
@@ -57,6 +58,7 @@ function App() {
           <Route path="/seller/:sellerId" component={SellerProfile} />
           <Route path="/about" component={About} />
           <Route path="/privacy" component={Privacy} />
+          <Route path="/map" component={MapResults} />
           <Route>404 - Page Not Found</Route>
         </Switch>
       </UnreadMessagesProvider>
