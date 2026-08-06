@@ -702,3 +702,14 @@ body {
 
 /* Ad Detail Title Row (for StatusBadge) */
 .ad-detail-title-row { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+
+/* Map button in AdsList header */
+.ads-map-btn { flex-shrink: 0; padding: 8px; border-radius: 8px; background: var(--bare-surface); border: 1px solid var(--bare-border); color: var(--bare-text-secondary); cursor: pointer; transition: all 150ms; }
+.ads-map-btn:hover { border-color: var(--bare-green); color: var(--bare-green); }
+
+/* Status badge overlay on card image */
+.hp-card-status { position: absolute; top: 8px; right: 8px; z-index: 2; }
+
+/* Filter distance options */
+.filter-distance-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-sort-option.disabled { opacity: 0.4; pointer-events: none; }
