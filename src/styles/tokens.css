@@ -1,0 +1,89 @@
+/* ===================================
+   BARE DESIGN TOKENS
+   Source of truth for all visual values
+   =================================== */
+
+:root {
+  /* === Colors === */
+  --bare-bg: #111315;
+  --bare-surface: #191C1E;
+  --bare-elevated: #202426;
+  --bare-elevated-strong: #272C2F;
+  --bare-border: #30363A;
+  --bare-border-strong: #41484D;
+  --bare-text: #F5F7F8;
+  --bare-text-secondary: #B3BBC0;
+  --bare-text-muted: #7F898F;
+  --bare-green: #4ADE80;
+  --bare-green-hover: #35C76C;
+  --bare-green-bg: rgba(74, 222, 128, 0.12);
+  --bare-green-text: #071A0F;
+  --bare-error: #F97066;
+  --bare-warning: #F5B942;
+  --bare-info: #6AAEFF;
+
+  /* === Legacy variable mapping (backward compat) === */
+  --bg-primary: var(--bare-bg);
+  --bg-secondary: var(--bare-surface);
+  --bg-card: var(--bare-elevated);
+  --border-color: var(--bare-border);
+  --text-primary: var(--bare-text);
+  --text-secondary: var(--bare-text-secondary);
+  --text-muted: var(--bare-text-muted);
+  --accent-green: var(--bare-green);
+  --accent-green-dark: var(--bare-green-hover);
+  --accent-green-bg: var(--bare-green-bg);
+
+  /* === Typography === */
+  --font-family: 'IBM Plex Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 22px;
+  --font-size-2xl: 28px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* === Spacing === */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* === Radii === */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* === Transitions === */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+
+  /* === Shadows === */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* === Layout === */
+  --header-height: 56px;
+  --bottom-nav-height: 64px;
+  --page-padding: 16px;
+  --max-width: 1200px;
+}
+
+/* === Reduced motion === */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-normal: 0ms;
+  }
+}
