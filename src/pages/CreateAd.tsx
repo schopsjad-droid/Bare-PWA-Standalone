@@ -9,6 +9,9 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import { Link } from 'wouter';
 import { MAIN_CATEGORIES, SYRIAN_CITIES, getSubcategories, type PriceType } from '../constants/categories';
 import { getCategoryAttributes, type AttributeField } from '../config/categoryAttributes';
+import LocationPicker from '../components/LocationPicker';
+import LocationPrivacySelector from '../components/LocationPrivacySelector';
+import { generateGeohash, getPublicCoordinates, type LocationPrecision } from '../utils/geo';
 
 export default function CreateAd() {
   const { user, userProfile } = useAuth();
@@ -25,10 +28,27 @@ export default function CreateAd() {
   const [images, setImages] = useState<File[]>([]);
   const [customAttributes, setCustomAttributes] = useState<Record<string, any>>({});
 
+  // Location state
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [selectedLat, setSelectedLat] = useState<number | null>(null);
+  const [selectedLng, setSelectedLng] = useState<number | null>(null);
+  const [locationPrecision, setLocationPrecision] = useState<LocationPrecision>('approximate');
+
   const categoryConfig = getCategoryAttributes(mainCategory);
   const handleAttributeChange = (fieldId: string, value: any) => { setCustomAttributes(prev => ({ ...prev, [fieldId]: value })); };
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) setImages(Array.from(e.target.files).slice(0, 5)); };
   const handleMainCategoryChange = (value: string) => { setMainCategory(value); setSubcategory(''); setCustomAttributes({}); };
+
+  const handleLocationConfirm = (lat: number, lng: number) => {
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    setShowMapPicker(false);
+  };
+
+  const handleRemoveLocation = () => {
+    setSelectedLat(null);
+    setSelectedLng(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
@@ -36,10 +56,23 @@ export default function CreateAd() {
       const imageUrls: string[] = [];
       for (const image of images) { const r = ref(storage, `ads/${Date.now()}-${image.name}`); await uploadBytes(r, image); imageUrls.push(await getDownloadURL(r)); }
       const finalCategory = subcategory || `${mainCategory}-all`;
+
+      // Build location data
+      const locationData: Record<string, any> = {};
+      if (selectedLat !== null && selectedLng !== null) {
+        const [pubLat, pubLng] = getPublicCoordinates(selectedLat, selectedLng, locationPrecision);
+        locationData.latitude = pubLat;
+        locationData.longitude = pubLng;
+        locationData.geohash = generateGeohash(pubLat, pubLng);
+        locationData.locationPrecision = locationPrecision;
+        locationData.locationSource = 'map';
+      }
+
       await addDoc(collection(db, 'ads'), {
         title, description, price: priceType === 'free' ? 0 : Number(price), priceType,
-        category: finalCategory, mainCategory, status: 'approved', city, images: imageUrls,
+        category: finalCategory, mainCategory, status: 'available', city, images: imageUrls,
         userId: user.uid, username: userProfile?.username || 'مستخدم', views: 0, createdAt: serverTimestamp(),
+        ...locationData,
         ...(Object.keys(customAttributes).length > 0 && { attributes: customAttributes }),
       });
       setLocation('/');
@@ -120,7 +153,7 @@ export default function CreateAd() {
                   <div className="form-attrs-grid">
                     {categoryConfig.fields.map((field: AttributeField) => (
                       <div key={field.id} className="form-group">
-                        <label className="label">{field.icon} {field.labelAr}{field.required && <span className="form-required">*</span>}</label>
+                        <label className="label">{field.labelAr}{field.required && <span className="form-required">*</span>}</label>
                         {field.type === 'text' && <input type="text" className="input" value={customAttributes[field.id] || ''} onChange={(e) => handleAttributeChange(field.id, e.target.value)} placeholder={field.placeholderAr} required={field.required} />}
                         {field.type === 'number' && (
                           <div className="form-input-unit">
@@ -155,6 +188,39 @@ export default function CreateAd() {
                 </select>
               </div>
 
+              {/* Location Section */}
+              <div className="form-section">
+                <h3 className="form-section-title">الموقع على الخريطة (اختياري)</h3>
+
+                {selectedLat === null ? (
+                  <div className="form-group">
+                    <button type="button" className="btn btn-secondary btn-full" onClick={() => setShowMapPicker(true)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      تحديد الموقع على الخريطة
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="location-summary">
+                      <span className="location-summary-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      </span>
+                      <span className="location-summary-text">
+                        تم تحديد الموقع ({locationPrecision === 'approximate' ? 'تقريبي' : 'دقيق'})
+                      </span>
+                      <button type="button" onClick={() => setShowMapPicker(true)} className="location-summary-remove" title="تغيير">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                      <button type="button" onClick={handleRemoveLocation} className="location-summary-remove" title="إزالة">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+
+                    <LocationPrivacySelector value={locationPrecision} onChange={setLocationPrecision} />
+                  </>
+                )}
+              </div>
+
               {/* Images */}
               <div className="form-group">
                 <label className="label">الصور (حتى 5 صور)</label>
@@ -171,6 +237,15 @@ export default function CreateAd() {
         </div>
         <MobileBottomNav />
       </div>
+
+      {/* Location Picker Modal */}
+      <LocationPicker
+        isOpen={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onConfirm={handleLocationConfirm}
+        initialLat={selectedLat || undefined}
+        initialLng={selectedLng || undefined}
+      />
     </ProtectedRoute>
   );
 }
