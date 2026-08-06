@@ -1,190 +1,54 @@
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
 import { Link } from 'wouter';
+import MobileBottomNav from '../components/MobileBottomNav';
+import Footer from '../components/Footer';
 
 export default function About() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Navbar />
+    <div className="page-wrap">
+      <header className="page-header">
+        <Link href="/"><span className="page-header-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg></span></Link>
+        <h1 className="page-header-title">من نحن</h1>
+        <div className="page-header-spacer" />
+      </header>
 
-      <div className="container py-8" style={{ flex: 1 }}>
-        <div className="card" style={{ maxWidth: '800px', margin: '0 auto' }}>
-          {/* Header */}
-          <div style={{
-            textAlign: 'center',
-            marginBottom: '32px'
-          }}>
-            <h1 style={{
-              fontSize: '32px',
-              fontWeight: 'bold',
-              color: 'var(--text-primary)',
-              marginBottom: '12px'
-            }}>
-              من نحن
-            </h1>
-            <div style={{
-              width: '60px',
-              height: '4px',
-              backgroundColor: '#22c55e',
-              margin: '0 auto',
-              borderRadius: '2px'
-            }} />
+      <div className="page-content">
+        <div className="content-page">
+          <div className="content-page-header">
+            <h1 className="content-page-title">من نحن</h1>
+            <div className="content-page-accent" />
           </div>
 
-          {/* Content */}
-          <div style={{
-            fontSize: '16px',
-            lineHeight: '1.8',
-            color: 'var(--text-secondary)'
-          }}>
-            <section style={{ marginBottom: '24px' }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '600',
-                color: 'var(--text-primary)',
-                marginBottom: '16px'
-              }}>
-                📱 عن Bare
-              </h2>
-              <p style={{ marginBottom: '16px' }}>
-                <strong>Bare</strong> هي منصة متخصصة في الإعلانات المبوبة، تهدف إلى تسهيل عمليات البيع والشراء بين الأفراد والشركات. نوفر بيئة آمنة وموثوقة لنشر الإعلانات وتصفحها بسهولة.
-              </p>
-            </section>
+          <section className="content-section">
+            <h2 className="content-section-title">عن Bare</h2>
+            <p className="content-text"><strong>Bare</strong> هي منصة متخصصة في الإعلانات المبوبة، تهدف إلى تسهيل عمليات البيع والشراء بين الأفراد والشركات. نوفر بيئة آمنة وموثوقة لنشر الإعلانات وتصفحها بسهولة.</p>
+          </section>
 
-            <section style={{ marginBottom: '24px' }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '600',
-                color: 'var(--text-primary)',
-                marginBottom: '16px'
-              }}>
-                🎯 رؤيتنا
-              </h2>
-              <p style={{ marginBottom: '16px' }}>
-                نسعى لأن نكون المنصة الأولى للإعلانات المبوبة، من خلال توفير تجربة استخدام سلسة وآمنة تربط البائعين والمشترين بكل سهولة.
-              </p>
-            </section>
+          <section className="content-section">
+            <h2 className="content-section-title">رؤيتنا</h2>
+            <p className="content-text">نسعى لأن نكون المنصة الأولى للإعلانات المبوبة، من خلال توفير تجربة استخدام سلسة وآمنة تربط البائعين والمشترين بكل سهولة.</p>
+          </section>
 
-            <section style={{ marginBottom: '24px' }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '600',
-                color: 'var(--text-primary)',
-                marginBottom: '16px'
-              }}>
-                ✨ ما نقدمه
-              </h2>
-              <ul style={{
-                listStyle: 'none',
-                padding: 0,
-                margin: 0
-              }}>
-                <li style={{
-                  padding: '12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderRadius: '8px',
-                  marginBottom: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <span style={{ fontSize: '24px' }}>🏪</span>
-                  <span>منصة شاملة لجميع الفئات: سيارات، عقارات، إلكترونيات، وظائف، وأكثر</span>
-                </li>
-                <li style={{
-                  padding: '12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderRadius: '8px',
-                  marginBottom: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <span style={{ fontSize: '24px' }}>🔒</span>
-                  <span>نظام تقييمات موثوق للبائعين لضمان الشفافية والأمان</span>
-                </li>
-                <li style={{
-                  padding: '12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderRadius: '8px',
-                  marginBottom: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <span style={{ fontSize: '24px' }}>💬</span>
-                  <span>نظام محادثات مباشر بين المشترين والبائعين</span>
-                </li>
-                <li style={{
-                  padding: '12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderRadius: '8px',
-                  marginBottom: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <span style={{ fontSize: '24px' }}>🔍</span>
-                  <span>بحث متقدم وفلاتر ذكية للوصول السريع للإعلانات المناسبة</span>
-                </li>
-                <li style={{
-                  padding: '12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <span style={{ fontSize: '24px' }}>📱</span>
-                  <span>تطبيق ويب تقدمي (PWA) يعمل على جميع الأجهزة</span>
-                </li>
-              </ul>
-            </section>
+          <section className="content-section">
+            <h2 className="content-section-title">ما نقدمه</h2>
+            <ul className="content-list">
+              <li>نشر إعلانات مجانية بسرعة وسهولة</li>
+              <li>تصفح إعلانات حسب الفئة والموقع</li>
+              <li>نظام مراسلة مباشر بين البائع والمشتري</li>
+              <li>نظام تقييم للبائعين لبناء الثقة</li>
+              <li>حماية الخصوصية وأمان البيانات</li>
+            </ul>
+          </section>
 
-            <section style={{ marginBottom: '24px' }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '600',
-                color: 'var(--text-primary)',
-                marginBottom: '16px'
-              }}>
-                🤝 التزامنا
-              </h2>
-              <p style={{ marginBottom: '16px' }}>
-                نلتزم بتوفير بيئة آمنة وموثوقة لجميع المستخدمين. نحن نعمل باستمرار على تحسين المنصة وإضافة ميزات جديدة لتلبية احتياجات مجتمعنا.
-              </p>
-            </section>
-
-            {/* CTA */}
-            <div style={{
-              textAlign: 'center',
-              marginTop: '40px',
-              padding: '24px',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRadius: '12px'
-            }}>
-              <h3 style={{
-                fontSize: '20px',
-                fontWeight: '600',
-                color: 'var(--text-primary)',
-                marginBottom: '16px'
-              }}>
-                هل أنت مستعد للبدء؟
-              </h3>
-              <Link href="/create-ad">
-                <a className="btn btn-primary" style={{
-                  textDecoration: 'none',
-                  display: 'inline-block'
-                }}>
-                  ➕ أضف إعلانك الأول
-                </a>
-              </Link>
-            </div>
-          </div>
+          <section className="content-section">
+            <h2 className="content-section-title">تواصل معنا</h2>
+            <p className="content-text">لأي استفسار أو اقتراح، يمكنك التواصل معنا عبر البريد الإلكتروني:</p>
+            <p className="content-text"><strong>support@bare-app.com</strong></p>
+          </section>
         </div>
       </div>
 
       <Footer />
+      <MobileBottomNav />
     </div>
   );
 }
