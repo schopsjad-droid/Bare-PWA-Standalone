@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import Navbar from '../components/Navbar';
 import { Link, useLocation } from 'wouter';
+import MobileBottomNav from '../components/MobileBottomNav';
 
 interface Ad {
   id: string;
@@ -20,27 +20,17 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
-      setLocation('/login');
-      return;
-    }
+    if (!user) { setLocation('/login'); return; }
     loadUserAds();
   }, [user]);
 
   const loadUserAds = async () => {
     if (!user) return;
-
     try {
       const adsRef = collection(db, 'ads');
       const q = query(adsRef, where('userId', '==', user.uid));
       const snapshot = await getDocs(q);
-      
-      const adsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Ad[];
-      
-      setAds(adsData);
+      setAds(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Ad[]);
     } catch (error) {
       console.error('Error loading user ads:', error);
     } finally {
@@ -51,122 +41,79 @@ export default function Profile() {
   if (!user) return null;
 
   return (
-    <div>
-      <Navbar />
-      
-      {/* Main container with proper padding */}
-      <div className="container py-8">
+    <div className="page-wrap">
+      <header className="page-header">
+        <Link href="/"><span className="page-header-back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </span></Link>
+        <h1 className="page-header-title">حسابي</h1>
+        <Link href="/account-settings"><span className="page-header-back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68 1.65 1.65 0 0 0 10 3.17V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </span></Link>
+      </header>
+
+      <div className="page-content">
         {/* Profile Card */}
-        <div className="card mb-4">
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            gap: '12px',
-            marginBottom: '16px'
-          }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>حسابي</h1>
-            <Link href="/account-settings">
-              <a className="btn btn-outline" style={{ 
-                padding: '8px 16px', 
-                display: 'inline-block',
-                width: 'fit-content'
-              }}>
-                ⚙️ الإعدادات
-              </a>
-            </Link>
+        <div className="profile-card">
+          <div className="profile-avatar">
+            {user.email?.[0].toUpperCase()}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              fontSize: '1.5rem',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
-              {user.email?.[0].toUpperCase()}
-            </div>
-            <div style={{ overflow: 'hidden' }}>
-              <h2 style={{ 
-                fontSize: '1rem', 
-                fontWeight: '600',
-                wordBreak: 'break-all'
-              }}>{user.email}</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                {ads.length} إعلان منشور
-              </p>
-            </div>
+          <div className="profile-info">
+            <h2 className="profile-email">{user.email}</h2>
+            <p className="profile-stats">{ads.length} إعلان منشور</p>
           </div>
         </div>
 
-        {/* My Ads Section */}
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '16px' }}>
-          إعلاناتي
-        </h2>
+        {/* My Ads */}
+        <div className="profile-section">
+          <div className="profile-section-head">
+            <h2>إعلاناتي</h2>
+            <Link href="/create-ad"><span className="btn btn-primary btn-sm">+ إضافة</span></Link>
+          </div>
 
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="spinner"></div>
-          </div>
-        ) : ads.length === 0 ? (
-          <div className="card text-center py-8">
-            <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📦</div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '8px' }}>
-              لا توجد إعلانات
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              لم تقم بنشر أي إعلان بعد
-            </p>
-            <Link href="/create-ad">
-              <a className="btn btn-primary">
-                + إضافة إعلان جديد
-              </a>
-            </Link>
-          </div>
-        ) : (
-          /* Fixed Grid: Full width cards on mobile */
-          <div className="grid grid-cols-1 grid-cols-sm-2 grid-cols-md-3">
-            {ads.map(ad => (
-              <Link key={ad.id} href={`/ad/${ad.id}`}>
-                <a className="ad-card" style={{ 
-                  display: 'block', 
-                  textDecoration: 'none', 
-                  color: 'inherit',
-                  width: '100%'
-                }}>
-                  {ad.images && ad.images.length > 0 ? (
-                    <img
-                      src={ad.images[0]}
-                      alt={ad.title}
-                      className="ad-image"
-                    />
-                  ) : (
-                    <div className="ad-image" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '3rem'
-                    }}>
-                      📷
-                    </div>
-                  )}
-                  <div className="ad-content">
-                    <h3 className="ad-title">{ad.title}</h3>
-                    <span className="ad-price">
-                      {ad.price?.toLocaleString() || 0} ل.س
-                    </span>
+          {loading ? (
+            <div className="page-loading"><div className="spinner" /></div>
+          ) : ads.length === 0 ? (
+            <div className="empty-state">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+              <h3>لا توجد إعلانات</h3>
+              <p>لم تقم بنشر أي إعلان بعد</p>
+              <Link href="/create-ad"><span className="btn btn-primary">إضافة إعلان جديد</span></Link>
+            </div>
+          ) : (
+            <div className="fav-grid">
+              {ads.map(ad => {
+                const hasImage = ad.images && ad.images.length > 0 && ad.images[0];
+                return (
+                  <div key={ad.id} className="hp-card-wrap">
+                    <Link href={`/ad/${ad.id}`}>
+                      <span className="hp-card">
+                        <div className="hp-card-img">
+                          {hasImage ? (
+                            <img src={ad.images[0]} alt="" loading="lazy" />
+                          ) : (
+                            <div className="hp-card-placeholder">
+                              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className="hp-card-body">
+                          <h3 className="hp-card-title">{ad.title || 'إعلان'}</h3>
+                          <div className="hp-card-price">{(ad.price || 0).toLocaleString('ar-SA')} ل.س</div>
+                        </div>
+                      </span>
+                    </Link>
                   </div>
-                </a>
-              </Link>
-            ))}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
+      <MobileBottomNav />
     </div>
   );
 }
