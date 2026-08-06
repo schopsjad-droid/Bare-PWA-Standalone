@@ -27,11 +27,29 @@ service cloud.firestore {
     // Ads Collection
     // ========================================
     match /ads/{adId} {
+      // Validate location fields if present
+      function validLocation() {
+        let d = request.resource.data;
+        return (
+          (!('latitude' in d) || d.latitude == null || (d.latitude is number && d.latitude >= -90 && d.latitude <= 90)) &&
+          (!('longitude' in d) || d.longitude == null || (d.longitude is number && d.longitude >= -180 && d.longitude <= 180)) &&
+          (!('geohash' in d) || d.geohash == null || (d.geohash is string && d.geohash.size() > 0)) &&
+          (!('locationPrecision' in d) || d.locationPrecision == null || d.locationPrecision in ['approximate', 'exact']) &&
+          (!('listingStatus' in d) || d.listingStatus in ['available', 'reserved', 'sold'])
+        );
+      }
+
       allow read: if true;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() 
+        && request.resource.data.userId == request.auth.uid
+        && validLocation();
       allow update: if isAuthenticated() && (
-        request.auth.uid == resource.data.userId || 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views'])
+        // Owner can update all fields
+        (request.auth.uid == resource.data.userId && validLocation()) ||
+        // Anyone can increment views
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']) ||
+        // Owner can change listingStatus only
+        (request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['listingStatus']))
       );
       allow delete: if isAuthenticated() && (
         request.auth.uid == resource.data.userId || isAdmin()
