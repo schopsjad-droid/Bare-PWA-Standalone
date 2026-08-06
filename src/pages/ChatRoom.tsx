@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRoute, Link, useLocation } from 'wouter';
-import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import ProtectedRoute from '../components/ProtectedRoute';
@@ -49,7 +49,11 @@ export default function ChatRoom() {
     setSending(true);
     try {
       await addDoc(collection(db, 'chats', params.chatId, 'messages'), { text: newMessage.trim(), senderId: user.uid, senderName: userProfile.username, timestamp: serverTimestamp() });
-      await updateDoc(doc(db, 'chats', params.chatId), { lastMessage: newMessage.trim(), lastMessageTime: serverTimestamp() });
+      // Determine recipient and increment their unread count
+      const recipientId = chat.participants.find(p => p !== user.uid);
+      const updateData: any = { lastMessage: newMessage.trim(), lastMessageTime: serverTimestamp() };
+      if (recipientId) { updateData[`unreadCount_${recipientId}`] = increment(1); }
+      await updateDoc(doc(db, 'chats', params.chatId), updateData);
       setNewMessage('');
     } catch (e) { console.error(e); alert('فشل إرسال الرسالة'); }
     finally { setSending(false); }

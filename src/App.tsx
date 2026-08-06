@@ -1,6 +1,7 @@
 import { Route, Switch } from 'wouter';
 import { AuthProvider } from './contexts/AuthContext';
-import { UnreadMessagesProvider } from './contexts/UnreadMessagesContext';
+import { UnreadMessagesProvider, useUnreadMessages } from './contexts/UnreadMessagesContext';
+import InAppNotification from './components/InAppNotification';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -20,11 +21,19 @@ import SellerProfile from './pages/SellerProfile';
 import About from './pages/About';
 import Privacy from './pages/Privacy';
 import AdminDashboard from './pages/AdminDashboard';
+import Settings from './pages/Settings';
+import NotificationSettings from './pages/NotificationSettings';
+
+function NotificationLayer() {
+  const { latestNotification, dismissNotification } = useUnreadMessages();
+  return <InAppNotification notification={latestNotification} onDismiss={dismissNotification} />;
+}
 
 function App() {
   return (
     <AuthProvider>
       <UnreadMessagesProvider>
+        <NotificationLayer />
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/login" component={Login} />
@@ -39,6 +48,8 @@ function App() {
           <Route path="/inbox" component={Inbox} />
           <Route path="/messages" component={Inbox} />
           <Route path="/chat/:chatId" component={ChatRoom} />
+          <Route path="/settings" component={Settings} />
+          <Route path="/settings/notifications" component={NotificationSettings} />
           <Route path="/account-settings" component={AccountSettings} />
           <Route path="/admin/migrate" component={AdminMigrate} />
           <Route path="/admin" component={AdminDashboard} />
