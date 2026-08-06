@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import MobileBottomNav from '../components/MobileBottomNav';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Link, useRoute, useLocation } from 'wouter';
+import { Link, useRoute, useLocation, useSearch } from 'wouter';
 import { Helmet } from 'react-helmet-async';
 import { formatPrice, type PriceType, findCategoryById } from '../constants/categories';
-import FilterModal, { type FilterState } from '../components/FilterModal';
+import FilterModal, { type FilterState, type SortOption } from '../components/FilterModal';
 import FavoriteButton from '../components/FavoriteButton';
 import StatusBadge from '../components/StatusBadge';
-// geo utils available for distance features
-// import { calculateDistance, formatDistance } from '../utils/geo';
+import { calculateDistance, formatDistance, getGeohashBounds } from '../utils/geo';
 
 interface Ad {
   id: string;
@@ -25,74 +24,165 @@ interface Ad {
   listingStatus?: string;
   latitude?: number;
   longitude?: number;
+  _distance?: number; // computed client-side
 }
 
 export default function AdsList() {
   const [, params] = useRoute('/category/:categoryId');
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const categoryId = params?.categoryId || 'all';
+
+  // Parse location filter from URL
+  const urlParams = useMemo(() => new URLSearchParams(search), [search]);
+  const locationLat = urlParams.get('lat') ? parseFloat(urlParams.get('lat')!) : null;
+  const locationLng = urlParams.get('lng') ? parseFloat(urlParams.get('lng')!) : null;
+  const locationRadius = urlParams.get('radius') ? parseInt(urlParams.get('radius')!) : null;
+  const locationLabel = urlParams.get('label') || '';
+  const urlQuery = urlParams.get('q') || '';
+
+  const hasLocationFilter = locationLat !== null && locationLng !== null && locationRadius !== null;
+
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(urlQuery);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<FilterState>({ minPrice: '', maxPrice: '', sortBy: 'newest', city: '', distanceKm: '', listingStatus: '' });
+  const [filters, setFilters] = useState<FilterState>({
+    minPrice: '', maxPrice: '',
+    sortBy: hasLocationFilter ? 'nearest' : 'newest',
+    city: '', distanceKm: '', listingStatus: ''
+  });
 
-  useEffect(() => { loadAds(); }, [categoryId, filters.sortBy]);
+  useEffect(() => { loadAds(); }, [categoryId, filters.sortBy, hasLocationFilter, locationLat, locationLng, locationRadius]);
 
   const loadAds = async () => {
     try {
       setLoading(true); setIndexError(null);
-      const adsRef = collection(db, 'ads');
-      let orderByField = 'createdAt', orderByDirection: 'asc' | 'desc' = 'desc';
-      switch (filters.sortBy) {
-        case 'price-asc': orderByField = 'price'; orderByDirection = 'asc'; break;
-        case 'price-desc': orderByField = 'price'; orderByDirection = 'desc'; break;
-        case 'most-viewed': orderByField = 'views'; orderByDirection = 'desc'; break;
+
+      if (hasLocationFilter) {
+        // Distance-based query using geofire-common
+        await loadAdsWithDistance();
+      } else {
+        // Standard query
+        await loadAdsStandard();
       }
-      const q = categoryId === 'all'
-        ? query(adsRef, orderBy(orderByField, orderByDirection))
-        : query(adsRef, where('category', '==', categoryId), orderBy(orderByField, orderByDirection));
-      const snapshot = await getDocs(q);
-      setAds(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Ad[]);
     } catch (error: any) {
       console.error('Error loading ads:', error);
-      if (error.code === 'failed-precondition' && error.message.includes('index')) {
+      if (error.code === 'failed-precondition' && error.message?.includes('index')) {
         const match = error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/);
         setIndexError(match ? match[0] : 'INDEX_REQUIRED');
       }
     } finally { setLoading(false); }
   };
 
+  const loadAdsStandard = async () => {
+    const adsRef = collection(db, 'ads');
+    let orderByField = 'createdAt', orderByDirection: 'asc' | 'desc' = 'desc';
+    switch (filters.sortBy) {
+      case 'price-asc': orderByField = 'price'; orderByDirection = 'asc'; break;
+      case 'price-desc': orderByField = 'price'; orderByDirection = 'desc'; break;
+      case 'most-viewed': orderByField = 'views'; orderByDirection = 'desc'; break;
+    }
+    const q = categoryId === 'all'
+      ? query(adsRef, where('status', '==', 'approved'), orderBy(orderByField, orderByDirection))
+      : query(adsRef, where('status', '==', 'approved'), where('category', '==', categoryId), orderBy(orderByField, orderByDirection));
+    const snapshot = await getDocs(q);
+    setAds(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Ad[]);
+  };
+
+  const loadAdsWithDistance = async () => {
+    if (!locationLat || !locationLng || !locationRadius) return;
+    const center: [number, number] = [locationLat, locationLng];
+    const geoBounds = getGeohashBounds(center, locationRadius);
+    const seenIds = new Set<string>();
+    const results: Ad[] = [];
+
+    for (const b of geoBounds) {
+      const constraints: any[] = [
+        where('status', '==', 'approved'),
+        where('geohash', '>=', b[0]),
+        where('geohash', '<=', b[1]),
+      ];
+      const q = query(collection(db, 'ads'), ...constraints, limit(200));
+      const snapshot = await getDocs(q);
+      snapshot.docs.forEach(doc => {
+        if (seenIds.has(doc.id)) return;
+        seenIds.add(doc.id);
+        const d = doc.data();
+        if (d.latitude && d.longitude) {
+          const dist = calculateDistance(center, [d.latitude, d.longitude]);
+          if (dist <= locationRadius) {
+            // Category filter
+            if (categoryId !== 'all' && d.category !== categoryId) return;
+            results.push({ id: doc.id, ...d, _distance: dist } as Ad);
+          }
+        }
+      });
+    }
+
+    // Sort by distance by default
+    if (filters.sortBy === 'nearest' || filters.sortBy === 'newest') {
+      results.sort((a, b) => (a._distance || 0) - (b._distance || 0));
+    } else if (filters.sortBy === 'price-asc') {
+      results.sort((a, b) => (a.price || 0) - (b.price || 0));
+    } else if (filters.sortBy === 'price-desc') {
+      results.sort((a, b) => (b.price || 0) - (a.price || 0));
+    }
+
+    setAds(results);
+  };
+
   const handleApplyFilters = (newFilters: FilterState) => { setFilters(newFilters); };
-  const handleResetFilters = () => { setFilters({ minPrice: '', maxPrice: '', sortBy: 'newest', city: '', distanceKm: '', listingStatus: '' }); setSearchQuery(''); };
+  const handleResetFilters = () => {
+    setFilters({ minPrice: '', maxPrice: '', sortBy: hasLocationFilter ? 'nearest' : 'newest', city: '', distanceKm: '', listingStatus: '' });
+    setSearchQuery('');
+  };
+
+  const handleRemoveLocationFilter = () => {
+    // Navigate without location params
+    setLocation(`/category/${categoryId}`);
+  };
+
+  const handleEditLocationFilter = () => {
+    const p = new URLSearchParams();
+    if (locationLat) p.set('lat', String(locationLat));
+    if (locationLng) p.set('lng', String(locationLng));
+    if (locationRadius) p.set('radius', String(locationRadius));
+    if (locationLabel) p.set('label', locationLabel);
+    if (searchQuery) p.set('q', searchQuery);
+    p.set('cat', categoryId);
+    setLocation(`/map?${p.toString()}`);
+  };
+
+  const handleOpenLocationFilter = () => {
+    const p = new URLSearchParams();
+    if (searchQuery) p.set('q', searchQuery);
+    p.set('cat', categoryId);
+    setLocation(`/map?${p.toString()}`);
+  };
 
   const filteredAds = ads.filter(ad => {
     if (!ad || !ad.id || !ad.title) return false;
-    // Search query
     if (searchQuery) {
       const s = searchQuery.toLowerCase();
       if (!(ad.title || '').toLowerCase().includes(s) && !(ad.description || '').toLowerCase().includes(s)) return false;
     }
-    // City filter
     if (filters.city && ad.city !== filters.city) return false;
-    // Price filter
     const p = ad.price || 0;
     if (filters.minPrice && p < parseFloat(filters.minPrice)) return false;
     if (filters.maxPrice && p > parseFloat(filters.maxPrice)) return false;
-    // ListingStatus filter
     if (filters.listingStatus) {
       const adStatus = ad.listingStatus || 'available';
       if (adStatus !== filters.listingStatus) return false;
     } else {
-      // Default: exclude sold
       const adStatus = ad.listingStatus || 'available';
       if (adStatus === 'sold') return false;
     }
     return true;
   });
 
-  const hasActiveFilters = filters.minPrice || filters.maxPrice || filters.sortBy !== 'newest' || filters.city || filters.distanceKm || filters.listingStatus || searchQuery;
+  const hasActiveFilters = filters.minPrice || filters.maxPrice || (filters.sortBy !== 'newest' && filters.sortBy !== 'nearest') || filters.city || filters.distanceKm || filters.listingStatus || searchQuery || hasLocationFilter;
   const category = findCategoryById(categoryId);
   const categoryName = category?.name || (categoryId === 'all' ? 'جميع الفئات' : 'الإعلانات');
 
@@ -112,10 +202,23 @@ export default function AdsList() {
         <button onClick={() => setShowFilterModal(true)} className={`ads-filter-btn${hasActiveFilters ? ' active' : ''}`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/></svg>
         </button>
-        <button onClick={() => setLocation('/map')} className="ads-map-btn" title="عرض على الخريطة">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        <button onClick={handleOpenLocationFilter} className="ads-map-btn" title="الموقع والمسافة">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         </button>
       </header>
+
+      {/* Location filter chip */}
+      {hasLocationFilter && (
+        <div className="location-filter-chip-bar">
+          <button className="location-filter-chip" onClick={handleEditLocationFilter}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>{locationLabel || 'موقع محدد'} · {locationRadius} كم</span>
+          </button>
+          <button className="location-filter-chip-remove" onClick={handleRemoveLocationFilter}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      )}
 
       {/* Results counter */}
       {!loading && (
@@ -167,7 +270,8 @@ export default function AdsList() {
                         <div className="hp-card-price">{formatPrice({ amount: safeAd.price || 0, type: safeAd.priceType || 'fixed' })}</div>
                         <div className="hp-card-meta">
                           {safeAd.city && <span>{safeAd.city}</span>}
-                          {safeAd.views > 0 && <span>{safeAd.views} مشاهدة</span>}
+                          {ad._distance !== undefined && <span>{formatDistance(ad._distance)}</span>}
+                          {!ad._distance && safeAd.views > 0 && <span>{safeAd.views} مشاهدة</span>}
                         </div>
                       </div>
                     </span>
@@ -180,7 +284,13 @@ export default function AdsList() {
         )}
       </div>
 
-      <FilterModal isOpen={showFilterModal} onClose={() => setShowFilterModal(false)} onApply={handleApplyFilters} initialFilters={filters} />
+      <FilterModal
+        isOpen={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        onApply={handleApplyFilters}
+        initialFilters={filters}
+        hasSearchCenter={hasLocationFilter}
+      />
       <MobileBottomNav />
     </div>
   );

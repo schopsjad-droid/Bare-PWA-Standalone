@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { SYRIAN_CITIES } from '../constants/categories';
-import { DISTANCE_OPTIONS, STATUS_LABELS, type ListingStatus } from '../utils/geo';
+import { STATUS_LABELS, type ListingStatus } from '../utils/geo';
 
-export type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'most-viewed';
+export type SortOption = 'newest' | 'nearest' | 'price-asc' | 'price-desc' | 'most-viewed';
 export interface FilterState {
   minPrice: string;
   maxPrice: string;
@@ -17,7 +17,7 @@ interface FilterModalProps {
   onClose: () => void;
   onApply: (filters: FilterState) => void;
   initialFilters: FilterState;
-  hasSearchCenter?: boolean; // true if user has set a location for distance search
+  hasSearchCenter?: boolean;
 }
 
 export default function FilterModal({ isOpen, onClose, onApply, initialFilters, hasSearchCenter = false }: FilterModalProps) {
@@ -40,14 +40,21 @@ export default function FilterModal({ isOpen, onClose, onApply, initialFilters, 
   if (!isOpen) return null;
 
   const handleApply = () => { onApply({ minPrice, maxPrice, sortBy, city, distanceKm, listingStatus }); onClose(); };
-  const handleReset = () => { setMinPrice(''); setMaxPrice(''); setSortBy('newest'); setCity(''); setDistanceKm(''); setListingStatus(''); };
-  const activeCount = [minPrice, maxPrice, city, distanceKm, listingStatus, sortBy !== 'newest' ? sortBy : ''].filter(Boolean).length;
+  const handleReset = () => { setMinPrice(''); setMaxPrice(''); setSortBy(hasSearchCenter ? 'nearest' : 'newest'); setCity(''); setDistanceKm(''); setListingStatus(''); };
+  const activeCount = [minPrice, maxPrice, city, distanceKm, listingStatus, (sortBy !== 'newest' && sortBy !== 'nearest') ? sortBy : ''].filter(Boolean).length;
+
+  const sortOptions: { value: SortOption; label: string; disabled?: boolean }[] = [
+    { value: 'newest', label: 'الأحدث أولاً' },
+    { value: 'nearest', label: 'الأقرب', disabled: !hasSearchCenter },
+    { value: 'price-asc', label: 'السعر: الأقل أولاً' },
+    { value: 'price-desc', label: 'السعر: الأعلى أولاً' },
+    { value: 'most-viewed', label: 'الأكثر مشاهدة' },
+  ];
 
   return (
     <>
       <div className="modal-overlay" onClick={onClose} />
       <div className="bottom-sheet">
-        {/* Header */}
         <div className="bottom-sheet-header">
           <h2 className="bottom-sheet-title">
             تصفية وترتيب
@@ -82,24 +89,6 @@ export default function FilterModal({ isOpen, onClose, onApply, initialFilters, 
           </select>
         </div>
 
-        {/* Distance */}
-        <div className="form-group">
-          <label className="label">المسافة</label>
-          {!hasSearchCenter && <p className="form-hint">حدد موقعك أولاً لتفعيل البحث بالمسافة</p>}
-          <div className="filter-distance-options">
-            <label className={`filter-sort-option${distanceKm === '' ? ' active' : ''}`}>
-              <input type="radio" name="distance" value="" checked={distanceKm === ''} onChange={() => setDistanceKm('')} disabled={!hasSearchCenter} />
-              <span>بدون تحديد</span>
-            </label>
-            {DISTANCE_OPTIONS.map(d => (
-              <label key={d} className={`filter-sort-option${distanceKm === String(d) ? ' active' : ''}${!hasSearchCenter ? ' disabled' : ''}`}>
-                <input type="radio" name="distance" value={String(d)} checked={distanceKm === String(d)} onChange={() => setDistanceKm(String(d))} disabled={!hasSearchCenter} />
-                <span>{d} كم</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
         {/* Price Range */}
         <div className="form-group">
           <label className="label">نطاق السعر (ل.س)</label>
@@ -113,14 +102,9 @@ export default function FilterModal({ isOpen, onClose, onApply, initialFilters, 
         <div className="form-group">
           <label className="label">ترتيب حسب</label>
           <div className="filter-sort-options">
-            {([
-              { value: 'newest', label: 'الأحدث أولاً' },
-              { value: 'price-asc', label: 'السعر: الأقل أولاً' },
-              { value: 'price-desc', label: 'السعر: الأعلى أولاً' },
-              { value: 'most-viewed', label: 'الأكثر مشاهدة' }
-            ] as const).map(opt => (
-              <label key={opt.value} className={`filter-sort-option${sortBy === opt.value ? ' active' : ''}`}>
-                <input type="radio" name="sortBy" value={opt.value} checked={sortBy === opt.value} onChange={(e) => setSortBy(e.target.value as SortOption)} />
+            {sortOptions.map(opt => (
+              <label key={opt.value} className={`filter-sort-option${sortBy === opt.value ? ' active' : ''}${opt.disabled ? ' disabled' : ''}`}>
+                <input type="radio" name="sortBy" value={opt.value} checked={sortBy === opt.value} onChange={(e) => setSortBy(e.target.value as SortOption)} disabled={opt.disabled} />
                 <span>{opt.label}</span>
               </label>
             ))}
