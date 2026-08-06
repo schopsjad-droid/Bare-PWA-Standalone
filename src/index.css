@@ -379,3 +379,47 @@ body {
 .chat-room-field::placeholder { color: var(--bare-text-muted); }
 .chat-room-send { width: 40px; height: 40px; border-radius: 50%; background: var(--bare-elevated); color: var(--bare-text-muted); display: flex; align-items: center; justify-content: center; cursor: not-allowed; transition: all 150ms ease; flex-shrink: 0; }
 .chat-room-send.active { background: var(--bare-green); color: white; cursor: pointer; }
+
+/* === AD DETAILS === */
+.ad-detail { padding: 0 !important; }
+.ad-detail-gallery { background: var(--bare-surface); border-bottom: 1px solid var(--bare-border); }
+.ad-detail-main-img { width: 100%; max-height: 360px; object-fit: contain; display: block; }
+.ad-detail-thumbs { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; }
+.ad-detail-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid transparent; opacity: 0.6; transition: all 150ms ease; }
+.ad-detail-thumb.active { border-color: var(--bare-green); opacity: 1; }
+.ad-detail-section { padding: 14px 16px; border-bottom: 1px solid var(--bare-border); }
+.ad-detail-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.ad-detail-price { font-size: 22px; font-weight: 800; color: var(--bare-green); margin-bottom: 6px; }
+.ad-detail-meta { display: flex; gap: 12px; font-size: 12px; color: var(--bare-text-secondary); }
+.ad-detail-label { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.ad-detail-desc { font-size: 14px; line-height: 1.7; color: var(--bare-text-secondary); white-space: pre-wrap; }
+.ad-detail-attrs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.ad-detail-attr { display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--bare-elevated); border-radius: 10px; }
+.ad-detail-attr-icon { font-size: 18px; }
+.ad-detail-attr-label { font-size: 11px; color: var(--bare-text-muted); }
+.ad-detail-attr-value { font-size: 13px; font-weight: 600; }
+.ad-detail-info-row { display: flex; gap: 16px; }
+.ad-detail-info-label { font-size: 12px; color: var(--bare-text-muted); display: block; }
+.ad-detail-info-value { font-size: 14px; font-weight: 600; }
+.ad-detail-seller { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--bare-elevated); border-radius: 12px; cursor: pointer; transition: background 150ms ease; }
+.ad-detail-seller:hover { background: var(--bare-surface); }
+.ad-detail-seller-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--bare-green); color: var(--bare-green-text); font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ad-detail-seller-info { flex: 1; min-width: 0; }
+.ad-detail-seller-name { font-size: 14px; font-weight: 600; }
+.ad-detail-seller-rating { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #f59e0b; font-weight: 600; }
+.ad-detail-seller-count { color: var(--bare-text-muted); font-weight: 400; }
+.ad-detail-actions { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+
+/* === MODALS === */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
+.modal-box { background: var(--bare-surface); border: 1px solid var(--bare-border); border-radius: 16px; padding: 24px; max-width: 360px; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.modal-title { font-size: 18px; font-weight: 700; }
+.modal-desc { font-size: 13px; color: var(--bare-text-secondary); line-height: 1.6; }
+.modal-actions { display: flex; gap: 8px; width: 100%; margin-top: 8px; }
+.modal-actions .btn { flex: 1; }
+
+/* === BUTTON VARIANTS === */
+.btn-full { width: 100%; }
+.btn-danger { background: var(--bare-error) !important; color: white !important; border: none !important; }
+.btn-danger:hover { opacity: 0.9; }
+.btn-danger-outline { background: transparent !important; color: var(--bare-error) !important; border: 1px solid var(--bare-error) !important; }
