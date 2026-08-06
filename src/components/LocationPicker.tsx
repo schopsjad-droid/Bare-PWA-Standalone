@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
-import { SYRIA_CENTER, DEFAULT_ZOOM, OPENFREEMAP_STYLE, MAP_ATTRIBUTION, isValidCoordinates } from '../utils/geo';
-import type { LocationPrecision } from '../utils/geo';
+import { useState, useEffect, useRef } from 'react';
+import { SYRIA_CENTER, DEFAULT_ZOOM, OPENFREEMAP_STYLE, isValidCoordinates } from '../utils/geo';
 import MapFallback from './MapFallback';
 
 interface LocationPickerProps {

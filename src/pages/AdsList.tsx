@@ -5,10 +5,11 @@ import { db } from '../config/firebase';
 import { Link, useRoute, useLocation } from 'wouter';
 import { Helmet } from 'react-helmet-async';
 import { formatPrice, type PriceType, findCategoryById } from '../constants/categories';
-import FilterModal, { type FilterState, type SortOption } from '../components/FilterModal';
+import FilterModal, { type FilterState } from '../components/FilterModal';
 import FavoriteButton from '../components/FavoriteButton';
 import StatusBadge from '../components/StatusBadge';
-import { calculateDistance, formatDistance } from '../utils/geo';
+// geo utils available for distance features
+// import { calculateDistance, formatDistance } from '../utils/geo';
 
 interface Ad {
   id: string;

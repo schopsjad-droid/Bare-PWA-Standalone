@@ -13,7 +13,7 @@ import { getCategoryAttributes, formatAttributeValue } from '../config/categoryA
 import ListingMap from '../components/ListingMap';
 import StatusBadge from '../components/StatusBadge';
 import ListingStatusControl from '../components/ListingStatusControl';
-import type { LocationPrecision, ListingStatus } from '../utils/geo';
+import type { LocationPrecision } from '../utils/geo';
 
 interface Ad {
   title: string; description: string; price: number; priceType?: PriceType;
