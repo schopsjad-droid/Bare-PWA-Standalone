@@ -258,3 +258,33 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* === SHARED PAGE LAYOUT === */
+.page-wrap { min-height: 100vh; padding-bottom: 72px; background: var(--bare-bg); }
+.page-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bare-surface); border-bottom: 1px solid var(--bare-border); position: sticky; top: 0; z-index: 100; height: 56px; }
+.page-header-back { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--bare-text); cursor: pointer; transition: background 150ms ease; }
+.page-header-back:hover { background: var(--bare-elevated); }
+.page-header-title { font-size: 16px; font-weight: 700; flex: 1; }
+.page-header-spacer { width: 36px; }
+.page-content { padding: 16px; }
+.page-loading { display: flex; justify-content: center; padding: 48px 0; }
+
+/* Favorites Grid */
+.fav-grid { display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 640px) { .fav-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; } }
+@media (min-width: 1024px) { .fav-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* === CHAT LIST (Inbox) === */
+.chat-list { display: flex; flex-direction: column; }
+.chat-item { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--bare-border); cursor: pointer; transition: background 150ms ease; }
+.chat-item:hover { background: var(--bare-elevated); }
+.chat-item-avatar { width: 48px; height: 48px; border-radius: 10px; overflow: hidden; background: var(--bare-elevated); display: flex; align-items: center; justify-content: center; margin-left: 12px; flex-shrink: 0; }
+.chat-item-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.chat-item-body { flex: 1; min-width: 0; }
+.chat-item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.chat-item-name { font-size: 14px; font-weight: 500; color: var(--bare-text); display: flex; align-items: center; gap: 6px; }
+.chat-item-name.unread { font-weight: 700; }
+.chat-item-badge { background: var(--bare-error); color: white; font-size: 10px; font-weight: 700; min-width: 18px; height: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+.chat-item-time { font-size: 11px; color: var(--bare-text-muted); }
+.chat-item-ad { font-size: 12px; color: var(--bare-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+.chat-item-msg { font-size: 13px; color: var(--bare-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
