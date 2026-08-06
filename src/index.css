@@ -321,3 +321,14 @@ body {
 .auth-note svg { flex-shrink: 0; margin-top: 1px; }
 
 .auth-success { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--bare-green-bg); border: 1px solid rgba(74,222,128,0.3); border-radius: 10px; margin-bottom: 16px; font-size: 13px; color: var(--bare-green); }
+
+/* Desktop only utility */
+.desktop-only { display: none; }
+@media (min-width: 768px) { .desktop-only { display: inline-flex !important; } }
+
+/* === ADS LIST === */
+.ads-filter-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--bare-surface); border: 1px solid var(--bare-border); color: var(--bare-text-secondary); cursor: pointer; transition: all 150ms ease; flex-shrink: 0; }
+.ads-filter-btn:hover { border-color: var(--bare-green); color: var(--bare-green); }
+.ads-filter-btn.active { background: var(--bare-green); color: var(--bare-green-text); border-color: var(--bare-green); }
+.ads-counter { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background: var(--bare-surface); border-bottom: 1px solid var(--bare-border); font-size: 12px; color: var(--bare-text-secondary); }
+.ads-reset { background: none; border: none; color: var(--bare-green); font-size: 12px; cursor: pointer; font-weight: 500; }

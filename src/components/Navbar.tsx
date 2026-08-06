@@ -2,69 +2,36 @@ import { Link, useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [location] = useLocation();
 
   return (
-    <nav className="navbar">
-      <div className="container navbar-content">
-        {/* Logo */}
-        <Link href="/">
-          <a className="logo">
-            📦 Bare
-          </a>
-        </Link>
+    <nav className="header">
+      <div className="header-content">
+        <Link href="/"><span className="logo">Bare</span></Link>
 
-        {/* Desktop Navigation Links (hidden on mobile) */}
+        {/* Desktop Navigation */}
         <div className="desktop-nav-links">
-          <Link href="/">
-            <a className={`nav-link ${location === '/' ? 'active' : ''}`}>
-              🏠 الرئيسية
-            </a>
-          </Link>
+          <Link href="/"><span className={`nav-link ${location === '/' ? 'active' : ''}`}>الرئيسية</span></Link>
           {user && (
             <>
-              <Link href="/messages">
-                <a className={`nav-link ${location === '/messages' || location === '/inbox' ? 'active' : ''}`}>
-                  💬 الرسائل
-                </a>
-              </Link>
-              <Link href="/favorites">
-                <a className={`nav-link ${location === '/favorites' ? 'active' : ''}`}>
-                  ❤️ المفضلة
-                </a>
-              </Link>
+              <Link href="/messages"><span className={`nav-link ${location === '/messages' || location === '/inbox' ? 'active' : ''}`}>الرسائل</span></Link>
+              <Link href="/favorites"><span className={`nav-link ${location === '/favorites' ? 'active' : ''}`}>المفضلة</span></Link>
             </>
           )}
         </div>
 
-        {/* Auth Buttons */}
-        <div className="flex items-center gap-4">
+        {/* Auth Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {user ? (
             <>
-              <Link href="/create-ad">
-                <a className="btn btn-primary">
-                  + إضافة إعلان
-                </a>
-              </Link>
-              <Link href="/profile">
-                <a className="btn btn-outline desktop-only">
-                  حسابي
-                </a>
-              </Link>
+              <Link href="/create-ad"><span className="btn btn-primary btn-sm">+ إضافة إعلان</span></Link>
+              <Link href="/profile"><span className="btn btn-secondary btn-sm desktop-only">حسابي</span></Link>
             </>
           ) : (
             <>
-              <Link href="/login">
-                <a className="btn btn-outline">
-                  تسجيل الدخول
-                </a>
-              </Link>
-              <Link href="/register">
-                <a className="btn btn-primary desktop-only">
-                  إنشاء حساب
-                </a>
-              </Link>
+              <Link href="/login"><span className="btn btn-secondary btn-sm">تسجيل الدخول</span></Link>
+              <Link href="/register"><span className="btn btn-primary btn-sm desktop-only">إنشاء حساب</span></Link>
             </>
           )}
         </div>
