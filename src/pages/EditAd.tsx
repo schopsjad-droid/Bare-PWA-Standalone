@@ -7,6 +7,9 @@ import { useAuth } from '../contexts/AuthContext';
 import MobileBottomNav from '../components/MobileBottomNav';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { MAIN_CATEGORIES, SYRIAN_CITIES, getSubcategories, type PriceType } from '../constants/categories';
+import LocationPicker from '../components/LocationPicker';
+import LocationPrivacySelector from '../components/LocationPrivacySelector';
+import { generateGeohash, getPublicCoordinates, type LocationPrecision } from '../utils/geo';
 
 export default function EditAd() {
   const { user } = useAuth();
@@ -26,6 +29,13 @@ export default function EditAd() {
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [newImages, setNewImages] = useState<File[]>([]);
 
+  // Location state
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [selectedLat, setSelectedLat] = useState<number | null>(null);
+  const [selectedLng, setSelectedLng] = useState<number | null>(null);
+  const [locationPrecision, setLocationPrecision] = useState<LocationPrecision>('approximate');
+  const [hasExistingLocation, setHasExistingLocation] = useState(false);
+
   useEffect(() => { if (params?.id && user) loadAd(params.id); }, [params?.id, user]);
 
   const loadAd = async (id: string) => {
@@ -39,6 +49,13 @@ export default function EditAd() {
         const adMain = d.mainCategory || d.category; setMainCategory(adMain || '');
         if (d.category && d.category !== adMain) setSubcategory(d.category); else setSubcategory('');
         setCity(d.city || ''); setExistingImages(d.images || []);
+        // Load existing location data
+        if (d.latitude && d.longitude) {
+          setSelectedLat(d.latitude);
+          setSelectedLng(d.longitude);
+          setLocationPrecision(d.locationPrecision || 'approximate');
+          setHasExistingLocation(true);
+        }
       } else { setError('الإعلان غير موجود'); }
     } catch (e) { console.error(e); setError('فشل تحميل الإعلان'); }
     finally { setLoading(false); }
@@ -47,6 +64,19 @@ export default function EditAd() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files) setNewImages(Array.from(e.target.files).slice(0, 5 - existingImages.length)); };
   const removeExistingImage = (index: number) => { setExistingImages(prev => prev.filter((_, i) => i !== index)); };
   const handleMainCategoryChange = (value: string) => { setMainCategory(value); setSubcategory(''); };
+
+  const handleLocationConfirm = (lat: number, lng: number) => {
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    setShowMapPicker(false);
+    setHasExistingLocation(true);
+  };
+
+  const handleRemoveLocation = () => {
+    setSelectedLat(null);
+    setSelectedLng(null);
+    setHasExistingLocation(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setSaving(true);
@@ -59,7 +89,31 @@ export default function EditAd() {
         const docRef = doc(db, 'ads', params.id);
         const snap = await getDoc(docRef);
         if (!snap.exists() || snap.data().userId !== user.uid) { setError('غير مصرح لك بتعديل هذا الإعلان'); setSaving(false); return; }
-        await updateDoc(docRef, { title, description, price: priceType === 'free' ? 0 : Number(price), priceType, category: finalCategory, mainCategory, city, images: allImages, updatedAt: serverTimestamp() });
+
+        // Build update data
+        const updateData: Record<string, any> = {
+          title, description, price: priceType === 'free' ? 0 : Number(price), priceType,
+          category: finalCategory, mainCategory, city, images: allImages, updatedAt: serverTimestamp()
+        };
+
+        // Add location data if set
+        if (selectedLat !== null && selectedLng !== null) {
+          const [pubLat, pubLng] = getPublicCoordinates(selectedLat, selectedLng, locationPrecision);
+          updateData.latitude = pubLat;
+          updateData.longitude = pubLng;
+          updateData.geohash = generateGeohash(pubLat, pubLng);
+          updateData.locationPrecision = locationPrecision;
+          updateData.locationSource = 'map';
+        } else if (!hasExistingLocation) {
+          // User explicitly removed location - clear fields
+          updateData.latitude = null;
+          updateData.longitude = null;
+          updateData.geohash = null;
+          updateData.locationPrecision = null;
+          updateData.locationSource = null;
+        }
+
+        await updateDoc(docRef, updateData);
         setLocation(`/ad/${params.id}`);
       }
     } catch (err: any) { console.error(err); setError(err.message || 'فشل تحديث الإعلان'); }
@@ -115,6 +169,38 @@ export default function EditAd() {
 
               <div className="form-group"><label className="label">المدينة</label><select className="input" value={city} onChange={(e) => setCity(e.target.value)} required><option value="">اختر المدينة</option>{SYRIAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
 
+              {/* Location Section */}
+              <div className="form-section">
+                <h3 className="form-section-title">الموقع على الخريطة {hasExistingLocation ? '' : '(اختياري)'}</h3>
+
+                {selectedLat === null ? (
+                  <div className="form-group">
+                    <button type="button" className="btn btn-secondary btn-full" onClick={() => setShowMapPicker(true)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      {hasExistingLocation ? 'إعادة تحديد الموقع' : 'تحديد الموقع على الخريطة'}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="location-summary">
+                      <span className="location-summary-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      </span>
+                      <span className="location-summary-text">
+                        تم تحديد الموقع ({locationPrecision === 'approximate' ? 'تقريبي' : 'دقيق'})
+                      </span>
+                      <button type="button" onClick={() => setShowMapPicker(true)} className="location-summary-remove" title="تغيير">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                      <button type="button" onClick={handleRemoveLocation} className="location-summary-remove" title="إزالة">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+                    <LocationPrivacySelector value={locationPrecision} onChange={setLocationPrecision} />
+                  </>
+                )}
+              </div>
+
               {/* Existing Images */}
               {existingImages.length > 0 && (
                 <div className="form-group">
@@ -148,6 +234,15 @@ export default function EditAd() {
         </div>
         <MobileBottomNav />
       </div>
+
+      {/* Location Picker Modal */}
+      <LocationPicker
+        isOpen={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onConfirm={handleLocationConfirm}
+        initialLat={selectedLat || undefined}
+        initialLng={selectedLng || undefined}
+      />
     </ProtectedRoute>
   );
 }

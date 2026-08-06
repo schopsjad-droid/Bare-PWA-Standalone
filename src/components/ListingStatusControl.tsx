@@ -5,23 +5,24 @@ import { ListingStatus, STATUS_LABELS, STATUS_COLORS } from '../utils/geo';
 
 interface ListingStatusControlProps {
   adId: string;
-  currentStatus?: string;
+  currentListingStatus?: string;
   onStatusChange?: (newStatus: ListingStatus) => void;
 }
 
-export default function ListingStatusControl({ adId, currentStatus, onStatusChange }: ListingStatusControlProps) {
+export default function ListingStatusControl({ adId, currentListingStatus, onStatusChange }: ListingStatusControlProps) {
   const [loading, setLoading] = useState(false);
   const normalizedStatus: ListingStatus = 
-    (currentStatus === 'reserved' || currentStatus === 'sold') ? currentStatus : 'available';
+    (currentListingStatus === 'reserved' || currentListingStatus === 'sold') ? currentListingStatus : 'available';
 
   const handleStatusChange = async (newStatus: ListingStatus) => {
     if (newStatus === normalizedStatus) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'ads', adId), { status: newStatus });
+      // Only update listingStatus - never touch the moderation 'status' field
+      await updateDoc(doc(db, 'ads', adId), { listingStatus: newStatus });
       onStatusChange?.(newStatus);
     } catch (e) {
-      console.error('Error updating status:', e);
+      console.error('Error updating listingStatus:', e);
       alert('فشل تحديث حالة الإعلان');
     } finally {
       setLoading(false);

@@ -70,7 +70,7 @@ export default function CreateAd() {
 
       await addDoc(collection(db, 'ads'), {
         title, description, price: priceType === 'free' ? 0 : Number(price), priceType,
-        category: finalCategory, mainCategory, status: 'available', city, images: imageUrls,
+        category: finalCategory, mainCategory, status: 'approved', listingStatus: 'available', city, images: imageUrls,
         userId: user.uid, username: userProfile?.username || 'مستخدم', views: 0, createdAt: serverTimestamp(),
         ...locationData,
         ...(Object.keys(customAttributes).length > 0 && { attributes: customAttributes }),
