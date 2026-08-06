@@ -5,6 +5,7 @@ import { Link, useLocation } from 'wouter';
 import { Helmet } from 'react-helmet-async';
 import MobileBottomNav from '../components/MobileBottomNav';
 import FavoriteButton from '../components/FavoriteButton';
+import StatusBadge from '../components/StatusBadge';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Ad {
@@ -24,6 +25,9 @@ interface Ad {
   attributes?: Record<string, any>;
   isFeatured?: boolean;
   status: string;
+  listingStatus?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface Category {
@@ -229,9 +233,10 @@ export default function Home() {
           <span>الموقع</span>
           <input type="text" placeholder="المدينة" value={filterCity} onChange={(e) => setFilterCity(e.target.value)} className="hp-filter-inp" />
         </div>
-        <div className="hp-filter-chip">
-          <span>الفرز</span>
-        </div>
+        <Link href="/map"><span className="hp-filter-chip hp-filter-map">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          <span>الخريطة</span>
+        </span></Link>
       </div>
 
       {/* Listings */}
@@ -276,6 +281,9 @@ export default function Home() {
                           </div>
                         )}
                         {ad.isFeatured && <span className="hp-card-badge">مميز</span>}
+                        {(ad.listingStatus === 'reserved' || ad.listingStatus === 'sold') && (
+                          <div className="hp-card-status"><StatusBadge listingStatus={ad.listingStatus} size="sm" /></div>
+                        )}
                       </div>
 
                       {/* Content - right side on mobile */}

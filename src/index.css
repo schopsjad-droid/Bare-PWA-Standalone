@@ -713,3 +713,7 @@ body {
 /* Filter distance options */
 .filter-distance-options { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-sort-option.disabled { opacity: 0.4; pointer-events: none; }
+
+/* Homepage Map filter chip */
+.hp-filter-map { cursor: pointer; color: var(--bare-green); border-color: var(--bare-green); display: flex; align-items: center; gap: 4px; text-decoration: none; }
+.hp-filter-map:hover { background: var(--bare-green-bg); }
