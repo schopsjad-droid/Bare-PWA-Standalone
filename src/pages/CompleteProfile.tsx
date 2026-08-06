@@ -89,7 +89,6 @@ export default function CompleteProfile() {
   return (
     <div>
       {/* Top Green Accent Line */}
-      <div className="top-accent"></div>
 
       <div className="flex items-center justify-center" style={{ minHeight: '100vh', paddingTop: '60px' }}>
         <div className="card" style={{ maxWidth: '500px', width: '100%', margin: '1rem' }}>

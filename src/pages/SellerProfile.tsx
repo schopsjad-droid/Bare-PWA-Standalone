@@ -159,7 +159,6 @@ export default function SellerProfile() {
 
   return (
     <div style={{ minHeight: '100vh', paddingBottom: '80px' }}>
-      <div className="top-accent"></div>
       <Navbar />
 
       <div className="container py-6">
@@ -219,7 +218,7 @@ export default function SellerProfile() {
                 fontSize: '14px',
                 color: 'var(--text-secondary)'
               }}>
-                📦 {ads.length} إعلان نشط
+                {ads.length} إعلان نشط
               </div>
             </div>
           </div>
@@ -250,7 +249,7 @@ export default function SellerProfile() {
                 className="btn btn-primary"
                 style={{ width: '100%' }}
               >
-                ⭐ أضف تقييم
+                أضف تقييم
               </button>
             )
           )}
@@ -278,7 +277,7 @@ export default function SellerProfile() {
               marginBottom: '-2px'
             }}
           >
-            📦 الإعلانات ({ads.length})
+            الإعلانات ({ads.length})
           </button>
           <button
             onClick={() => setActiveTab('reviews')}
@@ -295,7 +294,7 @@ export default function SellerProfile() {
               marginBottom: '-2px'
             }}
           >
-            ⭐ التقييمات ({reviews.length})
+            التقييمات ({reviews.length})
           </button>
         </div>
 
@@ -304,7 +303,7 @@ export default function SellerProfile() {
           <div>
             {ads.length === 0 ? (
               <div className="card text-center py-8">
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}></div>
                 <p style={{ color: 'var(--text-secondary)' }}>
                   لا توجد إعلانات نشطة حالياً
                 </p>
@@ -327,7 +326,7 @@ export default function SellerProfile() {
                           justifyContent: 'center',
                           fontSize: '48px'
                         }}>
-                          📦
+                          
                         </div>
                       )}
                       <div className="ad-content">

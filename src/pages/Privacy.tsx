@@ -4,7 +4,6 @@ import Footer from '../components/Footer';
 export default function Privacy() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div className="top-accent"></div>
       <Navbar />
 
       <div className="container py-8" style={{ flex: 1 }}>
@@ -266,7 +265,7 @@ export default function Privacy() {
                 marginTop: '16px'
               }}>
                 <p style={{ marginBottom: '8px' }}>
-                  📧 البريد الإلكتروني: privacy@bare.app
+                  البريد الإلكتروني: privacy@bare.app
                 </p>
                 <p>
                   📱 الموقع: www.bare.app

@@ -246,7 +246,7 @@ export default function CreateAd() {
                   alignItems: 'center',
                   gap: '0.5rem'
                 }}>
-                  📋 معلومات إضافية ({categoryConfig.categoryNameAr})
+                  معلومات إضافية ({categoryConfig.categoryNameAr})
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   {categoryConfig.fields.map((field: AttributeField) => (

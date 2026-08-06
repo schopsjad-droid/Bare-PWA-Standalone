@@ -98,7 +98,7 @@ export default function FilterModal({ isOpen, onClose, onApply, initialFilters }
             alignItems: 'center',
             gap: '8px'
           }}>
-            🔍 تصفية وترتيب
+            تصفية وترتيب
             {activeFiltersCount > 0 && (
               <span style={{
                 backgroundColor: '#22c55e',
@@ -233,7 +233,7 @@ export default function FilterModal({ isOpen, onClose, onApply, initialFilters }
             marginBottom: '12px',
             color: 'var(--text-primary)'
           }}>
-            📊 ترتيب حسب
+            ترتيب حسب
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {[

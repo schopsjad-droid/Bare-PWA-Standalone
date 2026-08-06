@@ -130,7 +130,7 @@ export default function ReportModal({ isOpen, onClose, adId, adTitle }: ReportMo
                 fontWeight: 'bold',
                 color: 'var(--text-primary)'
               }}>
-                🚩 الإبلاغ عن الإعلان
+                الإبلاغ عن الإعلان
               </h2>
               <button
                 onClick={handleClose}
@@ -185,8 +185,8 @@ export default function ReportModal({ isOpen, onClose, adId, adTitle }: ReportMo
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {[
                   { value: 'fraud', label: '🚫 احتيال أو نصب', icon: '🚫' },
-                  { value: 'inappropriate', label: '⚠️ محتوى غير لائق', icon: '⚠️' },
-                  { value: 'spam', label: '📧 إعلان مكرر أو سبام', icon: '📧' },
+                  { value: 'inappropriate', label: 'محتوى غير لائق', icon: '⚠️' },
+                  { value: 'spam', label: 'إعلان مكرر أو سبام', icon: '📧' },
                   { value: 'misleading', label: '❌ معلومات مضللة', icon: '❌' },
                   { value: 'other', label: '📝 أخرى', icon: '📝' }
                 ].map((option) => (

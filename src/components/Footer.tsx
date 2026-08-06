@@ -61,7 +61,7 @@ export default function Footer() {
                   onMouseEnter={(e) => e.currentTarget.style.color = '#22c55e'}
                   onMouseLeave={(e) => e.currentTarget.style.color = '#a3a3a3'}
                   >
-                    🏠 الرئيسية
+                    الرئيسية
                   </a>
                 </Link>
               </li>

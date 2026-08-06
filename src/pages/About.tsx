@@ -5,7 +5,6 @@ import { Link } from 'wouter';
 export default function About() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div className="top-accent"></div>
       <Navbar />
 
       <div className="container py-8" style={{ flex: 1 }}>

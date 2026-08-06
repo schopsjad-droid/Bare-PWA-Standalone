@@ -258,7 +258,7 @@ export default function ReviewModal({
                 fontWeight: '600',
                 color: 'var(--text-primary)'
               }}>
-                👤 {sellerName}
+                {sellerName}
               </div>
             </div>
 
