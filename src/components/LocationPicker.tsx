@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { SYRIA_CENTER, DEFAULT_ZOOM, OPENFREEMAP_STYLE, isValidCoordinates } from '../utils/geo';
 import MapFallback from './MapFallback';
 
@@ -10,44 +10,69 @@ interface LocationPickerProps {
   initialLng?: number;
 }
 
+type MapState = 'loading' | 'ready' | 'unsupported' | 'error';
+
 export default function LocationPicker({ isOpen, onClose, onConfirm, initialLat, initialLng }: LocationPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [webglSupported, setWebglSupported] = useState(true);
+  const initAttemptRef = useRef(0);
+  const [mapState, setMapState] = useState<MapState>('loading');
   const [selectedLat, setSelectedLat] = useState(initialLat || SYRIA_CENTER[0]);
   const [selectedLng, setSelectedLng] = useState(initialLng || SYRIA_CENTER[1]);
   const [locating, setLocating] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    // Check WebGL support
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (!gl) { setWebglSupported(false); return; }
+  const initMap = useCallback(async () => {
+    initAttemptRef.current += 1;
+    const currentAttempt = initAttemptRef.current;
 
-    // Dynamically import MapLibre
-    let cancelled = false;
-    const initMap = async () => {
-      try {
-        const maplibregl = await import('maplibre-gl');
-        await import('maplibre-gl/dist/maplibre-gl.css');
-        if (cancelled || !mapContainerRef.current) return;
+    if (mapRef.current) {
+      try { mapRef.current.remove(); } catch (_) {}
+      mapRef.current = null;
+    }
+    setMapState('loading');
 
-        const map = new maplibregl.default.Map({
-          container: mapContainerRef.current,
-          style: OPENFREEMAP_STYLE,
-          center: [initialLng || SYRIA_CENTER[1], initialLat || SYRIA_CENTER[0]],
-          zoom: initialLat ? 13 : DEFAULT_ZOOM,
-          attributionControl: false
-        });
+    try {
+      const maplibregl = await import('maplibre-gl');
+      const MapLib = maplibregl.default || maplibregl;
 
-        map.addControl(new maplibregl.default.AttributionControl({ compact: true }), 'bottom-left');
-        map.addControl(new maplibregl.default.NavigationControl({ showCompass: false }), 'bottom-right');
+      // Use MapLibre's own WebGL support check
+      if (typeof MapLib.supported === 'function' && !MapLib.supported()) {
+        setMapState('unsupported');
+        return;
+      }
 
-        // Add draggable marker
-        const marker = new maplibregl.default.Marker({ color: '#4ade80', draggable: true })
+      await import('maplibre-gl/dist/maplibre-gl.css');
+
+      if (currentAttempt !== initAttemptRef.current) return;
+      const container = mapContainerRef.current;
+      if (!container) { setMapState('error'); return; }
+
+      // Wait for container dimensions
+      if (container.clientWidth === 0 || container.clientHeight === 0) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        if (currentAttempt !== initAttemptRef.current) return;
+      }
+
+      const map = new MapLib.Map({
+        container: container,
+        style: OPENFREEMAP_STYLE,
+        center: [initialLng || SYRIA_CENTER[1], initialLat || SYRIA_CENTER[0]],
+        zoom: initialLat ? 13 : DEFAULT_ZOOM,
+        attributionControl: false,
+        failIfMajorPerformanceCaveat: false
+      });
+
+      const AttrControl = MapLib.AttributionControl || maplibregl.AttributionControl;
+      const NavControl = MapLib.NavigationControl || maplibregl.NavigationControl;
+      const Marker = MapLib.Marker || maplibregl.Marker;
+
+      if (AttrControl) map.addControl(new AttrControl({ compact: true }), 'bottom-left');
+      if (NavControl) map.addControl(new NavControl({ showCompass: false }), 'bottom-right');
+
+      // Add draggable marker
+      if (Marker) {
+        const marker = new Marker({ color: '#4ade80', draggable: true })
           .setLngLat([initialLng || SYRIA_CENTER[1], initialLat || SYRIA_CENTER[0]])
           .addTo(map);
 
@@ -57,26 +82,54 @@ export default function LocationPicker({ isOpen, onClose, onConfirm, initialLat,
           setSelectedLng(lngLat.lng);
         });
 
+        markerRef.current = marker;
+
         // Click map to move marker
         map.on('click', (e: any) => {
           marker.setLngLat(e.lngLat);
           setSelectedLat(e.lngLat.lat);
           setSelectedLng(e.lngLat.lng);
         });
+      }
 
-        map.on('load', () => setMapLoaded(true));
+      map.on('load', () => {
+        if (currentAttempt !== initAttemptRef.current) return;
+        setMapState('ready');
+        map.resize();
+      });
 
-        mapRef.current = map;
-        markerRef.current = marker;
-      } catch (e) {
-        console.error('[LocationPicker] Map init error:', e);
-        setWebglSupported(false);
+      mapRef.current = map;
+
+      // Timeout fallback
+      setTimeout(() => {
+        if (currentAttempt === initAttemptRef.current && !mapRef.current) {
+          setMapState('error');
+        }
+      }, 15000);
+
+    } catch (e: any) {
+      if (currentAttempt !== initAttemptRef.current) return;
+      console.error('[LocationPicker] Map init error:', e);
+      const msg = (e?.message || '').toLowerCase();
+      if (msg.includes('webgl') && (msg.includes('not supported') || msg.includes('unsupported'))) {
+        setMapState('unsupported');
+      } else {
+        setMapState('error');
+      }
+    }
+  }, [initialLat, initialLng]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    initMap();
+    return () => {
+      initAttemptRef.current += 1;
+      if (mapRef.current) {
+        try { mapRef.current.remove(); } catch (_) {}
+        mapRef.current = null;
       }
     };
-
-    initMap();
-    return () => { cancelled = true; mapRef.current?.remove(); mapRef.current = null; };
-  }, [isOpen]);
+  }, [isOpen, initMap]);
 
   const handleUseMyLocation = useCallback(async () => {
     if (!navigator.geolocation) { alert('تحديد الموقع غير مدعوم في هذا المتصفح'); return; }
@@ -118,18 +171,20 @@ export default function LocationPicker({ isOpen, onClose, onConfirm, initialLat,
         </div>
 
         <div className="location-picker-map-wrap">
-          {!webglSupported ? (
-            <MapFallback message="الخريطة غير مدعومة في هذا المتصفح. يمكنك إدخال الموقع يدوياً." />
+          {mapState === 'unsupported' ? (
+            <MapFallback type="unsupported" />
+          ) : mapState === 'error' ? (
+            <MapFallback type="error" onRetry={initMap} />
           ) : (
             <>
               <div ref={mapContainerRef} className="location-picker-map" />
-              {!mapLoaded && <div className="location-picker-loading"><div className="spinner" /></div>}
+              {mapState === 'loading' && <div className="location-picker-loading"><div className="spinner" /></div>}
             </>
           )}
         </div>
 
         <div className="location-picker-actions">
-          <button onClick={handleUseMyLocation} disabled={locating} className="btn btn-secondary btn-full">
+          <button onClick={handleUseMyLocation} disabled={locating || mapState !== 'ready'} className="btn btn-secondary btn-full">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg>
             {locating ? 'جاري التحديد...' : 'استخدام موقعي الحالي'}
           </button>
