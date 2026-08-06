@@ -10,12 +10,18 @@ import FavoriteButton from '../components/FavoriteButton';
 import ReportModal from '../components/ReportModal';
 import { formatPrice, type PriceType } from '../constants/categories';
 import { getCategoryAttributes, formatAttributeValue } from '../config/categoryAttributes';
+import ListingMap from '../components/ListingMap';
+import StatusBadge from '../components/StatusBadge';
+import ListingStatusControl from '../components/ListingStatusControl';
+import type { LocationPrecision, ListingStatus } from '../utils/geo';
 
 interface Ad {
   title: string; description: string; price: number; priceType?: PriceType;
   category: string; mainCategory?: string; city: string; images: string[];
   userId: string; username: string; createdAt: any; views?: number;
   attributes?: Record<string, any>;
+  latitude?: number; longitude?: number; locationPrecision?: LocationPrecision;
+  listingStatus?: string; status?: string;
 }
 
 export default function AdDetails() {
@@ -30,6 +36,8 @@ export default function AdDetails() {
   const [startingChat, setStartingChat] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [sellerRating, setSellerRating] = useState<{ sum: number; count: number } | null>(null);
+  const [showExpandedMap, setShowExpandedMap] = useState(false);
+  const [currentListingStatus, setCurrentListingStatus] = useState<string>('');
 
   useEffect(() => { if (params?.id) { loadAd(params.id); incrementViewCount(params.id); } }, [params?.id]);
 
@@ -41,6 +49,7 @@ export default function AdDetails() {
       if (docSnap.exists()) {
         const adData = docSnap.data() as Ad;
         setAd(adData);
+        setCurrentListingStatus(adData.listingStatus || 'available');
         if (adData.userId) {
           const sellerDoc = await getDoc(doc(db, 'users', adData.userId));
           if (sellerDoc.exists()) {
@@ -127,7 +136,10 @@ export default function AdDetails() {
 
         {/* Title & Price */}
         <div className="ad-detail-section">
-          <h1 className="ad-detail-title">{ad.title}</h1>
+          <div className="ad-detail-title-row">
+            <h1 className="ad-detail-title">{ad.title}</h1>
+            <StatusBadge listingStatus={currentListingStatus} size="md" />
+          </div>
           <div className="ad-detail-price">{formatPrice({ amount: ad.price, type: ad.priceType || 'fixed' })}</div>
           <div className="ad-detail-meta">
             <span>{ad.city}</span>
@@ -166,6 +178,22 @@ export default function AdDetails() {
           <div><span className="ad-detail-info-label">المدينة</span><span className="ad-detail-info-value">{ad.city}</span></div>
         </div>
 
+        {/* Map */}
+        {ad.latitude && ad.longitude && (
+          <div className="ad-detail-section">
+            <h3 className="ad-detail-label">الموقع</h3>
+            <ListingMap
+              latitude={ad.latitude}
+              longitude={ad.longitude}
+              precision={ad.locationPrecision || 'approximate'}
+              expanded={showExpandedMap}
+            />
+            <button onClick={() => setShowExpandedMap(!showExpandedMap)} className="btn btn-secondary btn-full" style={{ marginTop: '8px' }}>
+              {showExpandedMap ? 'تصغير الخريطة' : 'عرض على الخريطة'}
+            </button>
+          </div>
+        )}
+
         {/* Seller */}
         <div className="ad-detail-section">
           <h3 className="ad-detail-label">البائع</h3>
@@ -188,7 +216,7 @@ export default function AdDetails() {
         </div>
 
         {/* Actions */}
-        {user && ad.userId !== user.uid && (
+        {user && ad.userId !== user.uid && currentListingStatus !== 'sold' && (
           <div className="ad-detail-actions">
             <button onClick={handleContactSeller} disabled={startingChat} className="btn btn-primary btn-full">
               {startingChat ? 'جاري الفتح...' : 'راسل البائع'}
@@ -201,6 +229,7 @@ export default function AdDetails() {
 
         {user && ad.userId === user.uid && (
           <div className="ad-detail-actions">
+            {params?.id && <ListingStatusControl adId={params.id} currentListingStatus={currentListingStatus} onStatusChange={(s) => setCurrentListingStatus(s)} />}
             <Link href={`/edit-ad/${params?.id}`}><span className="btn btn-primary btn-full">تعديل</span></Link>
             <button onClick={() => setShowDeleteConfirm(true)} className="btn btn-danger btn-full">حذف</button>
           </div>
