@@ -124,11 +124,3 @@ export function isValidLongitude(lng: number): boolean {
 export function isValidCoordinates(lat: number, lng: number): boolean {
   return isValidLatitude(lat) && isValidLongitude(lng);
 }
-
-// ========================================
-// Map Configuration
-// ========================================
-
-export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/dark';
-
-export const MAP_ATTRIBUTION = '© <a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';

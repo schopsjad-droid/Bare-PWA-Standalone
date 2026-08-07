@@ -10,7 +10,6 @@ import FavoriteButton from '../components/FavoriteButton';
 import ReportModal from '../components/ReportModal';
 import { formatPrice, type PriceType } from '../constants/categories';
 import { getCategoryAttributes, formatAttributeValue } from '../config/categoryAttributes';
-import ListingMap from '../components/ListingMap';
 import StatusBadge from '../components/StatusBadge';
 import ListingStatusControl from '../components/ListingStatusControl';
 import type { LocationPrecision } from '../utils/geo';
@@ -36,7 +35,6 @@ export default function AdDetails() {
   const [startingChat, setStartingChat] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [sellerRating, setSellerRating] = useState<{ sum: number; count: number } | null>(null);
-  const [showExpandedMap, setShowExpandedMap] = useState(false);
   const [currentListingStatus, setCurrentListingStatus] = useState<string>('');
 
   useEffect(() => { if (params?.id) { loadAd(params.id); incrementViewCount(params.id); } }, [params?.id]);
@@ -178,19 +176,15 @@ export default function AdDetails() {
           <div><span className="ad-detail-info-label">المدينة</span><span className="ad-detail-info-value">{ad.city}</span></div>
         </div>
 
-        {/* Map */}
-        {ad.latitude && ad.longitude && (
+        {/* Location */}
+        {(ad.city || ad.latitude) && (
           <div className="ad-detail-section">
             <h3 className="ad-detail-label">الموقع</h3>
-            <ListingMap
-              latitude={ad.latitude}
-              longitude={ad.longitude}
-              precision={ad.locationPrecision || 'approximate'}
-              expanded={showExpandedMap}
-            />
-            <button onClick={() => setShowExpandedMap(!showExpandedMap)} className="btn btn-secondary btn-full" style={{ marginTop: '8px' }}>
-              {showExpandedMap ? 'تصغير الخريطة' : 'عرض على الخريطة'}
-            </button>
+            <div className="ad-detail-location-text">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--bare-green)" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span>{ad.city || 'سوريا'}</span>
+              {ad.locationPrecision === 'approximate' && <span className="ad-detail-location-approx">الموقع تقريبي</span>}
+            </div>
           </div>
         )}
 

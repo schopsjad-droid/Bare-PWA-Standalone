@@ -717,3 +717,52 @@ body {
 /* Homepage Map filter chip */
 .hp-filter-map { cursor: pointer; color: var(--bare-green); border-color: var(--bare-green); display: flex; align-items: center; gap: 4px; text-decoration: none; }
 .hp-filter-map:hover { background: var(--bare-green-bg); }
+
+/* ========================================
+   Location Filter Page (/map)
+   ======================================== */
+.location-filter-page { display: flex; flex-direction: column; height: 100vh; }
+.location-search-section { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.location-search-input-wrap { position: relative; display: flex; align-items: center; }
+.location-search-icon { position: absolute; right: 12px; opacity: 0.5; }
+.location-search-input { width: 100%; padding: 10px 36px 10px 36px; border-radius: 8px; border: 1px solid var(--bare-border); background: var(--bare-card); color: var(--bare-text); font-size: 14px; }
+.location-search-clear { position: absolute; left: 10px; background: none; border: none; color: var(--bare-text-muted); cursor: pointer; }
+.location-suggestions { position: absolute; top: 100%; right: 0; left: 0; z-index: 100; background: var(--bare-card); border: 1px solid var(--bare-border); border-radius: 8px; margin-top: 4px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.location-suggestion-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; border: none; background: none; color: var(--bare-text); font-size: 13px; cursor: pointer; text-align: right; }
+.location-suggestion-item:hover { background: var(--bare-bg-secondary); }
+.location-use-current { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 10px; border-radius: 8px; border: 1px solid var(--bare-border); background: var(--bare-card); color: var(--bare-text); font-size: 13px; cursor: pointer; }
+.location-use-current:disabled { opacity: 0.5; }
+.location-selected-label { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; background: rgba(74, 222, 128, 0.1); font-size: 13px; color: var(--bare-text); }
+.location-map-container { flex: 1; min-height: 200px; position: relative; }
+.location-map-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bare-bg); }
+.location-map-fallback { display: flex; align-items: center; justify-content: center; height: 100%; padding: 24px; text-align: center; color: var(--bare-text-muted); font-size: 14px; }
+.location-radius-section { padding: 12px 16px; }
+.location-radius-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.location-radius-label { font-size: 13px; color: var(--bare-text-muted); }
+.location-radius-value { font-size: 14px; font-weight: 600; color: var(--bare-green); }
+.location-radius-slider { width: 100%; accent-color: var(--bare-green); }
+.location-radius-quick { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.location-radius-chip { padding: 6px 12px; border-radius: 16px; border: 1px solid var(--bare-border); background: var(--bare-card); color: var(--bare-text); font-size: 12px; cursor: pointer; }
+.location-radius-chip.active { background: var(--bare-green); color: #000; border-color: var(--bare-green); }
+.location-confirm-section { padding: 12px 16px; }
+.location-confirm-btn { font-size: 15px; padding: 12px; }
+
+/* Location filter chip in results */
+.location-filter-chip-bar { display: flex; align-items: center; gap: 6px; padding: 8px 16px; }
+.location-filter-chip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 16px; background: rgba(74, 222, 128, 0.1); border: 1px solid var(--bare-green); color: var(--bare-text); font-size: 12px; cursor: pointer; flex: 1; }
+.location-filter-chip-remove { background: none; border: none; color: var(--bare-text-muted); cursor: pointer; padding: 4px; }
+
+/* Leaflet map styling */
+.leaflet-location-map { width: 100%; height: 100%; z-index: 1; }
+.leaflet-location-map .leaflet-control-zoom { border: none !important; box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important; }
+.leaflet-location-map .leaflet-control-zoom a { background: var(--bare-card) !important; color: var(--bare-text) !important; border-color: var(--bare-border) !important; }
+.leaflet-locate-control { position: absolute; bottom: 80px; right: 10px; z-index: 1000; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: var(--bare-card); border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; }
+
+/* Ad detail text location */
+.ad-detail-location-text { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 8px; background: var(--bare-bg-secondary); }
+.ad-detail-location-approx { font-size: 11px; color: var(--bare-text-muted); margin-right: auto; }
+
+/* LocationPicker search */
+.location-picker-search { padding: 8px 12px; position: relative; }
+.location-picker-search input { width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--bare-border); background: var(--bare-bg); color: var(--bare-text); font-size: 13px; }
+.location-picker-suggestions { position: absolute; top: 100%; right: 12px; left: 12px; z-index: 100; }
