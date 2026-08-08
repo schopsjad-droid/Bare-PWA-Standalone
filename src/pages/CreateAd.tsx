@@ -12,6 +12,7 @@ import { getCategoryAttributes, type AttributeField } from '../config/categoryAt
 import LocationPicker from '../components/LocationPicker';
 import LocationPrivacySelector from '../components/LocationPrivacySelector';
 import { generateGeohash, getPublicCoordinates, type LocationPrecision } from '../utils/geo';
+import { resolveGeoForCity } from '../data/syrianLocations';
 
 export default function CreateAd() {
   const { user, userProfile } = useAuth();
@@ -60,12 +61,24 @@ export default function CreateAd() {
       // Build location data
       const locationData: Record<string, any> = {};
       if (selectedLat !== null && selectedLng !== null) {
+        // User explicitly placed a pin on the map
         const [pubLat, pubLng] = getPublicCoordinates(selectedLat, selectedLng, locationPrecision);
         locationData.latitude = pubLat;
         locationData.longitude = pubLng;
         locationData.geohash = generateGeohash(pubLat, pubLng);
         locationData.locationPrecision = locationPrecision;
         locationData.locationSource = 'map';
+      } else if (city) {
+        // Auto-resolve from canonical Syrian location dataset (no map needed)
+        const resolved = resolveGeoForCity(city);
+        if (resolved) {
+          locationData.latitude = resolved.lat;
+          locationData.longitude = resolved.lng;
+          locationData.geohash = generateGeohash(resolved.lat, resolved.lng);
+          locationData.locationPrecision = 'approximate';
+          locationData.locationSource = 'location-selection';
+          locationData.locationId = resolved.locationId;
+        }
       }
 
       await addDoc(collection(db, 'ads'), {

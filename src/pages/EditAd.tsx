@@ -10,6 +10,7 @@ import { MAIN_CATEGORIES, SYRIAN_CITIES, getSubcategories, type PriceType } from
 import LocationPicker from '../components/LocationPicker';
 import LocationPrivacySelector from '../components/LocationPrivacySelector';
 import { generateGeohash, getPublicCoordinates, type LocationPrecision } from '../utils/geo';
+import { resolveGeoForCity } from '../data/syrianLocations';
 
 export default function EditAd() {
   const { user } = useAuth();
@@ -98,19 +99,32 @@ export default function EditAd() {
 
         // Add location data if set
         if (selectedLat !== null && selectedLng !== null) {
+          // User explicitly placed a pin on the map
           const [pubLat, pubLng] = getPublicCoordinates(selectedLat, selectedLng, locationPrecision);
           updateData.latitude = pubLat;
           updateData.longitude = pubLng;
           updateData.geohash = generateGeohash(pubLat, pubLng);
           updateData.locationPrecision = locationPrecision;
           updateData.locationSource = 'map';
-        } else if (!hasExistingLocation) {
-          // User explicitly removed location - clear fields
+        } else if (city) {
+          // Auto-resolve from canonical Syrian location dataset
+          const resolved = resolveGeoForCity(city);
+          if (resolved) {
+            updateData.latitude = resolved.lat;
+            updateData.longitude = resolved.lng;
+            updateData.geohash = generateGeohash(resolved.lat, resolved.lng);
+            updateData.locationPrecision = 'approximate';
+            updateData.locationSource = 'location-selection';
+            updateData.locationId = resolved.locationId;
+          }
+        } else {
+          // No city and no map pin - clear geo fields
           updateData.latitude = null;
           updateData.longitude = null;
           updateData.geohash = null;
           updateData.locationPrecision = null;
           updateData.locationSource = null;
+          updateData.locationId = null;
         }
 
         await updateDoc(docRef, updateData);

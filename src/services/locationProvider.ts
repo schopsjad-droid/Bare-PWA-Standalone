@@ -1,9 +1,10 @@
 /**
  * Location provider service for Bare PWA.
- * Abstracts Geoapify calls behind a clean interface.
- * Replace this file to switch providers without touching UI code.
+ * Uses the centralized Syrian location dataset as primary source.
+ * Geoapify is only called for locations NOT in the canonical dataset.
  */
 import { MAP_CONFIG } from '../config/maps';
+import { searchCanonicalLocations, ALL_LOCATIONS, type SyrianLocation } from '../data/syrianLocations';
 
 export interface LocationSuggestion {
   id: string;
@@ -16,84 +17,29 @@ export interface LocationSuggestion {
 }
 
 // ========================================
-// Local Syrian locations (free, no API call)
+// Local Syrian locations from centralized dataset
 // ========================================
-const SYRIAN_GOVERNORATES: { name: string; lat: number; lng: number }[] = [
-  { name: 'دمشق', lat: 33.5138, lng: 36.2765 },
-  { name: 'ريف دمشق', lat: 33.5, lng: 36.4 },
-  { name: 'حلب', lat: 36.2021, lng: 37.1343 },
-  { name: 'حمص', lat: 34.7324, lng: 36.7137 },
-  { name: 'حماة', lat: 35.1318, lng: 36.7518 },
-  { name: 'اللاذقية', lat: 35.5317, lng: 35.7918 },
-  { name: 'طرطوس', lat: 34.8894, lng: 35.8866 },
-  { name: 'دير الزور', lat: 35.3359, lng: 40.1408 },
-  { name: 'الرقة', lat: 35.9528, lng: 39.0079 },
-  { name: 'إدلب', lat: 35.9306, lng: 36.6339 },
-  { name: 'الحسكة', lat: 36.5026, lng: 40.7440 },
-  { name: 'القامشلي', lat: 37.0503, lng: 41.2262 },
-  { name: 'درعا', lat: 32.6189, lng: 36.1021 },
-  { name: 'السويداء', lat: 32.7093, lng: 36.5662 },
-  { name: 'القنيطرة', lat: 33.1260, lng: 35.8244 },
-];
-
-const SYRIAN_CITIES: { name: string; governorate: string; lat: number; lng: number }[] = [
-  { name: 'المزة', governorate: 'دمشق', lat: 33.4977, lng: 36.2477 },
-  { name: 'المالكي', governorate: 'دمشق', lat: 33.5150, lng: 36.2900 },
-  { name: 'أبو رمانة', governorate: 'دمشق', lat: 33.5180, lng: 36.2830 },
-  { name: 'الشعلان', governorate: 'دمشق', lat: 33.5120, lng: 36.2880 },
-  { name: 'كفرسوسة', governorate: 'دمشق', lat: 33.4950, lng: 36.2700 },
-  { name: 'المهاجرين', governorate: 'دمشق', lat: 33.5250, lng: 36.2900 },
-  { name: 'الصالحية', governorate: 'دمشق', lat: 33.5200, lng: 36.2950 },
-  { name: 'جرمانا', governorate: 'ريف دمشق', lat: 33.4833, lng: 36.3500 },
-  { name: 'صحنايا', governorate: 'ريف دمشق', lat: 33.4500, lng: 36.2333 },
-  { name: 'داريا', governorate: 'ريف دمشق', lat: 33.4600, lng: 36.2300 },
-  { name: 'العزيزية', governorate: 'حلب', lat: 36.1900, lng: 37.1500 },
-  { name: 'الحمدانية', governorate: 'حلب', lat: 36.1100, lng: 37.1200 },
-  { name: 'السليمانية', governorate: 'حلب', lat: 36.2100, lng: 37.1600 },
-  { name: 'الفرقان', governorate: 'حلب', lat: 36.1950, lng: 37.1400 },
-  { name: 'الإنشاءات', governorate: 'حمص', lat: 34.7400, lng: 36.7200 },
-  { name: 'الوعر', governorate: 'حمص', lat: 34.7500, lng: 36.6700 },
-  { name: 'جبلة', governorate: 'اللاذقية', lat: 35.3600, lng: 35.9200 },
-  { name: 'بانياس', governorate: 'طرطوس', lat: 35.1800, lng: 35.9500 },
-];
 
 /**
- * Search local Syrian locations (no API call needed)
+ * Convert canonical SyrianLocation to LocationSuggestion
+ */
+function canonicalToSuggestion(loc: SyrianLocation): LocationSuggestion {
+  return {
+    id: loc.id,
+    label: loc.type === 'governorate' ? loc.name : `${loc.name} – ${loc.governorateName}`,
+    latitude: loc.lat,
+    longitude: loc.lng,
+    governorate: loc.governorateName,
+    city: loc.type !== 'governorate' ? loc.name : undefined,
+  };
+}
+
+/**
+ * Search local Syrian locations from canonical dataset (no API call needed)
  */
 function searchLocalLocations(query: string): LocationSuggestion[] {
-  const q = query.trim().toLowerCase();
-  if (q.length < 2) return [];
-
-  const results: LocationSuggestion[] = [];
-
-  // Search governorates
-  for (const gov of SYRIAN_GOVERNORATES) {
-    if (gov.name.includes(q) || gov.name.toLowerCase().includes(q)) {
-      results.push({
-        id: `local-gov-${gov.name}`,
-        label: gov.name,
-        latitude: gov.lat,
-        longitude: gov.lng,
-        governorate: gov.name,
-      });
-    }
-  }
-
-  // Search cities
-  for (const city of SYRIAN_CITIES) {
-    if (city.name.includes(q) || city.governorate.includes(q)) {
-      results.push({
-        id: `local-city-${city.name}-${city.governorate}`,
-        label: `${city.name} – ${city.governorate}`,
-        latitude: city.lat,
-        longitude: city.lng,
-        governorate: city.governorate,
-        city: city.name,
-      });
-    }
-  }
-
-  return results.slice(0, MAP_CONFIG.autocompleteMaxResults);
+  const results = searchCanonicalLocations(query);
+  return results.map(canonicalToSuggestion).slice(0, MAP_CONFIG.autocompleteMaxResults);
 }
 
 // ========================================
@@ -222,11 +168,12 @@ function findNearestLocalLabel(lat: number, lng: number): string {
   let nearest = '';
   let minDist = Infinity;
 
-  for (const gov of SYRIAN_GOVERNORATES) {
-    const d = Math.sqrt((gov.lat - lat) ** 2 + (gov.lng - lng) ** 2);
+  for (const loc of ALL_LOCATIONS) {
+    if (loc.type !== 'governorate') continue;
+    const d = Math.sqrt((loc.lat - lat) ** 2 + (loc.lng - lng) ** 2);
     if (d < minDist) {
       minDist = d;
-      nearest = gov.name;
+      nearest = loc.name;
     }
   }
 
