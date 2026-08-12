@@ -5,11 +5,24 @@
  * in response to Firebase events.
  */
 
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+const functions = require('firebase-functions/v1');
+const { initializeApp } = require('firebase-admin/app');
+const { FieldValue, getFirestore } = require('firebase-admin/firestore');
+const { getMessaging } = require('firebase-admin/messaging');
+const { getStorage } = require('firebase-admin/storage');
+const {
+  buildNotificationPayload,
+  chunkTokens,
+  collectTokenTargets,
+  determineRecipient,
+  isConfirmedDeadTokenError,
+} = require('./notification-helpers');
 
 // Initialize Firebase Admin SDK
-admin.initializeApp();
+initializeApp();
+const firestore = getFirestore();
+const messaging = getMessaging();
+const storage = getStorage();
 
 /**
  * Cloud Function: Clean up storage when an ad is deleted
@@ -34,7 +47,7 @@ exports.cleanupAdImages = functions.region('europe-west1').firestore
       return null;
     }
 
-    const bucket = admin.storage().bucket();
+    const bucket = storage.bucket();
     const deletePromises = [];
 
     // Extract file path from Firebase Storage URL
@@ -96,94 +109,144 @@ exports.sendMessageNotification = functions.region('europe-west1').firestore
     const chatId = context.params.chatId;
     const messageId = context.params.messageId;
 
-    console.log(`New message in chat ${chatId}: ${messageId}`);
-
     try {
-      // Get chat data to find participants
-      const chatRef = admin.firestore().collection('chats').doc(chatId);
+      const chatRef = firestore.collection('chats').doc(chatId);
       const chatDoc = await chatRef.get();
-
       if (!chatDoc.exists) {
-        console.error('Chat not found:', chatId);
+        console.warn('Notification skipped because chat is missing', { chatId, messageId });
         return null;
       }
 
       const chatData = chatDoc.data();
-      const senderId = message.senderId;
-      const senderName = message.senderName || 'مستخدم';
-      const messageText = message.text || '';
-
-      // Find recipient (the other participant)
-      const recipientId = chatData.participants.find(id => id !== senderId);
-
-      if (!recipientId) {
-        console.error('Recipient not found in chat:', chatId);
+      const recipient = determineRecipient(chatData, message);
+      if (!recipient) {
+        console.warn('Notification skipped because sender/participants are invalid', { chatId, messageId });
         return null;
       }
 
-      console.log(`Recipient: ${recipientId}`);
-
-      // Get recipient's FCM tokens
-      const userRef = admin.firestore().collection('users').doc(recipientId);
-      const userDoc = await userRef.get();
-
-      if (!userDoc.exists) {
-        console.error('Recipient user not found:', recipientId);
+      const userRef = firestore.collection('users').doc(recipient.recipientId);
+      const [userDoc, deviceSnapshot] = await Promise.all([
+        userRef.get(),
+        userRef.collection('devices').get(),
+      ]);
+      const legacyTokens = userDoc.exists && Array.isArray(userDoc.data().fcmTokens)
+        ? userDoc.data().fcmTokens
+        : [];
+      const targets = collectTokenTargets(
+        deviceSnapshot.docs.map(deviceDoc => ({
+          data: deviceDoc.data(),
+          id: deviceDoc.id,
+          ref: deviceDoc.ref,
+        })),
+        legacyTokens,
+      );
+      if (targets.mobileTokens.length === 0 && targets.legacyTokens.length === 0) {
+        console.log('Notification skipped because recipient has no registered tokens', { chatId, messageId });
         return null;
       }
 
-      const userData = userDoc.data();
-      const fcmTokens = userData.fcmTokens || [];
+      const payload = buildNotificationPayload({
+        adId: chatData.adId,
+        chatId,
+        messageId,
+        messageText: message.text,
+        senderId: recipient.senderId,
+        senderName: recipient.senderName,
+      });
+      const deadMobileTokens = new Set();
+      const deadLegacyTokens = new Set();
 
-      if (fcmTokens.length === 0) {
-        console.log('Recipient has no FCM tokens');
-        return null;
-      }
+      const sendBatches = async (tokens, messageForBatch, deadTokens) => {
+        for (const tokenBatch of chunkTokens(tokens)) {
+          let result;
+          try {
+            result = await messaging.sendEachForMulticast(messageForBatch(tokenBatch));
+          } catch (error) {
+            console.error('FCM batch delivery failed without token cleanup', {
+              code: error.code || 'unknown',
+              count: tokenBatch.length,
+            });
+            continue;
+          }
 
-      console.log(`Sending notification to ${fcmTokens.length} devices`);
-
-      // Prepare notification payload
-      const payload = {
-        notification: {
-          title: `رسالة جديدة من ${senderName}`,
-          body: messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText,
-        },
-        data: {
-          chatId: chatId,
-          senderId: senderId,
-          messageId: messageId,
-          url: `/chat/${chatId}`
+          result.responses.forEach((response, index) => {
+            const token = tokenBatch[index];
+            if (!response.success && token && isConfirmedDeadTokenError(response.error)) {
+              deadTokens.add(token);
+            }
+          });
         }
       };
 
-      // Send notification to all tokens
-      const sendPromises = fcmTokens.map(async (token) => {
-        try {
-          await admin.messaging().send({
-            token: token,
-            ...payload
-          });
-          console.log(`Notification sent to token: ${token.substring(0, 20)}...`);
-        } catch (error) {
-          console.error(`Error sending to token ${token.substring(0, 20)}:`, error);
-          
-          // If token is invalid, remove it from user's tokens
-          if (error.code === 'messaging/invalid-registration-token' ||
-              error.code === 'messaging/registration-token-not-registered') {
-            console.log('Removing invalid token');
-            await userRef.update({
-              fcmTokens: admin.firestore.FieldValue.arrayRemove(token)
-            });
-          }
-        }
+      await sendBatches(
+        targets.mobileTokens,
+        tokens => ({
+          android: { priority: 'high', ttl: 24 * 60 * 60 * 1000 },
+          data: payload.data,
+          tokens,
+        }),
+        deadMobileTokens,
+      );
+      deadMobileTokens.forEach(token => {
+        if (targets.legacyTokenSet.has(token)) deadLegacyTokens.add(token);
       });
+      await sendBatches(
+        targets.legacyTokens,
+        tokens => ({
+          data: payload.data,
+          notification: payload.notification,
+          tokens,
+          webpush: {
+            fcmOptions: { link: `https://bare-syria.com/chat/${chatId}` },
+            notification: { renotify: true, tag: chatId },
+          },
+        }),
+        deadLegacyTokens,
+      );
 
-      await Promise.all(sendPromises);
+      const deadDeviceRefs = [];
+      deadMobileTokens.forEach(token => {
+        (targets.mobileDocumentsByToken.get(token) || []).forEach(device => deadDeviceRefs.push(device.ref));
+      });
+      for (let offset = 0; offset < deadDeviceRefs.length; offset += 450) {
+        const batch = firestore.batch();
+        deadDeviceRefs.slice(offset, offset + 450).forEach(reference => batch.delete(reference));
+        try {
+          await batch.commit();
+        } catch (error) {
+          console.error('Failed to remove confirmed dead device registrations', {
+            code: error.code || 'unknown',
+            count: Math.min(450, deadDeviceRefs.length - offset),
+          });
+        }
+      }
 
-      console.log(`Notification sent for message: ${messageId}`);
+      if (deadLegacyTokens.size > 0 && userDoc.exists) {
+        try {
+          await userRef.update({
+            fcmTokens: FieldValue.arrayRemove(...deadLegacyTokens),
+          });
+        } catch (error) {
+          console.error('Failed to remove confirmed dead legacy tokens', {
+            code: error.code || 'unknown',
+            count: deadLegacyTokens.size,
+          });
+        }
+      }
+
+      console.log('Message notification processing completed', {
+        chatId,
+        legacyTargets: targets.legacyTokens.length,
+        messageId,
+        mobileTargets: targets.mobileTokens.length,
+      });
       return null;
     } catch (error) {
-      console.error('Error sending notification:', error);
+      console.error('Message notification processing failed without affecting the message', {
+        chatId,
+        code: error.code || 'unknown',
+        messageId,
+      });
       return null;
     }
   });

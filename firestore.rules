@@ -16,6 +16,43 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ratingSum', 'ratingCount'])
       );
 
+      // Private, per-installation Android notification registrations.
+      // Parent document permissions do not cascade into this subcollection.
+      match /devices/{installationId} {
+        function ownsDevicePath() {
+          return isAuthenticated() && request.auth.uid == userId;
+        }
+
+        function validDeviceRegistration() {
+          let data = request.resource.data;
+          return data.keys().hasAll([
+              'createdAt', 'installationId', 'lastSeenAt', 'notificationsEnabled',
+              'platform', 'token', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'createdAt', 'installationId', 'lastSeenAt', 'notificationsEnabled',
+              'platform', 'token', 'updatedAt'
+            ])
+            && data.installationId == installationId
+            && data.platform == 'android'
+            && data.notificationsEnabled == true
+            && data.token is string
+            && data.token.size() >= 20
+            && data.token.size() <= 4096
+            && data.createdAt is timestamp
+            && data.updatedAt is timestamp
+            && data.lastSeenAt is timestamp;
+        }
+
+        allow read, delete: if ownsDevicePath();
+        allow create: if ownsDevicePath() && validDeviceRegistration();
+        allow update: if ownsDevicePath()
+          && validDeviceRegistration()
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.installationId == resource.data.installationId
+          && request.resource.data.platform == resource.data.platform;
+      }
+
       match /reviews/{reviewId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated() && request.resource.data.reviewerId == request.auth.uid;
