@@ -54,9 +54,37 @@ service cloud.firestore {
       }
 
       match /reviews/{reviewId} {
+        function validReviewDocument() {
+          let data = request.resource.data;
+          return data.keys().hasAll(['createdAt', 'rating', 'reviewerId', 'reviewerName'])
+            && data.keys().hasOnly(['comment', 'createdAt', 'rating', 'reviewerId', 'reviewerName', 'updatedAt'])
+            && data.reviewerId is string
+            && data.reviewerId.size() > 0
+            && data.reviewerName is string
+            && data.reviewerName.size() > 0
+            && data.reviewerName.size() <= 80
+            && data.rating is int
+            && data.rating >= 1
+            && data.rating <= 5
+            && data.createdAt is timestamp
+            && (!('updatedAt' in data) || data.updatedAt is timestamp)
+            && (!('comment' in data) || data.comment == null || (data.comment is string && data.comment.size() <= 500));
+        }
+
         allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && request.resource.data.reviewerId == request.auth.uid;
-        allow update, delete: if false;
+        allow create: if isAuthenticated()
+          && request.auth.uid != userId
+          && request.resource.data.reviewerId == request.auth.uid
+          && validReviewDocument();
+        allow update: if isAuthenticated()
+          && request.auth.uid != userId
+          && resource.data.reviewerId == request.auth.uid
+          && request.resource.data.reviewerId == resource.data.reviewerId
+          && request.resource.data.reviewerName == resource.data.reviewerName
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comment', 'rating', 'updatedAt'])
+          && validReviewDocument();
+        allow delete: if false;
       }
     }
 
@@ -139,8 +167,25 @@ service cloud.firestore {
     // Reports Collection
     // ========================================
     match /reports/{reportId} {
+      function validListingReport() {
+        let data = request.resource.data;
+        return data.keys().hasAll(['adId', 'adTitle', 'createdAt', 'details', 'reason', 'reporterId'])
+          && data.keys().hasOnly(['adId', 'adTitle', 'createdAt', 'details', 'reason', 'reporterId'])
+          && data.adId is string
+          && data.adId.size() > 0
+          && data.adTitle is string
+          && data.adTitle.size() > 0
+          && data.adTitle.size() <= 200
+          && data.reporterId == request.auth.uid
+          && data.reason in ['spam', 'fake', 'inappropriate', 'wrong-category', 'other']
+          && (data.details == null || (data.details is string && data.details.size() <= 500))
+          && data.createdAt is timestamp
+          && exists(/databases/$(database)/documents/ads/$(data.adId))
+          && get(/databases/$(database)/documents/ads/$(data.adId)).data.userId != request.auth.uid;
+      }
+
       allow read: if isAuthenticated() && isAdmin();
-      allow create: if isAuthenticated() && request.resource.data.reporterId == request.auth.uid;
+      allow create: if isAuthenticated() && validListingReport();
       allow update, delete: if false;
     }
 
